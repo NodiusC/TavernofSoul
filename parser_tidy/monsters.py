@@ -3,7 +3,6 @@
 Created on Sun Oct  3 20:11:07 2021
 
 @author: Intel
-
 """
 
 import csv
@@ -11,7 +10,7 @@ import logging
 import os
 import glob
 from os.path import exists
-from DB import ToS_DB as constants
+from cache import TOSParseCache as Cache
 import luautil
 
 
@@ -53,7 +52,7 @@ monster_const={}
 
 def parse(c = None):
     if (c==None):
-        c= constants()
+        c= Cache()
         c.build()
         luautil.init()
     parse_monsters_statbase('statbase_monster.ies', statbase_monster,c)
@@ -185,7 +184,7 @@ def parse_monsters_statbase(file_name, destination,constants):
 
 def parse_links(c=None):
     if (c==None):
-        c = constants()
+        c = Cache()
         c.build()
     c.data['item_monster'] = []
     parse_links_items(c)
@@ -215,10 +214,10 @@ def parse_links_items(constants):
         try:
             with open(ies_path, 'r', encoding="utf-8") as ies_file:
                 for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
-                    if not row['ItemClassName'] or row['ItemClassName'] not in constants.data['items_by_name']:
+                    if not row['ItemClassName'] or row['ItemClassName'] not in constants.data['items']:
                         continue
 
-                    item = constants.data['items_by_name'][row['ItemClassName']]
+                    item = constants.data['items'][row['ItemClassName']]
                     item_link = item['$ID']
                     monster_link = monster['$ID']
                     constants.data['item_monster'].append({

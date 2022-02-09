@@ -11,7 +11,7 @@ import logging
 import os
 
 from os.path import exists
-from DB import ToS_DB as constants
+from cache import TOSParseCache as Cache
 import json
 
 import tokutil
@@ -74,6 +74,6 @@ if __name__ == "__main__":
     except:
         logging.warning("need 1 positional argument; region")
         quit()
-    c= constants()
+    c= Cache()
     c.build(region)
     parse_maps_images(c)

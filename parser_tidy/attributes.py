@@ -3,7 +3,6 @@
 Created on Thu Sep 23 08:05:03 2021
 
 @author: CPPG02619
-
 """
 
 import csv
@@ -11,14 +10,13 @@ import logging
 import os
 import io
 from os.path import exists
-from DB import ToS_DB as constants
+from cache import TOSParseCache as Cache
 import luautil
-
 
 
 def parse(c = None):
     if (c == None):
-        c = constants()
+        c = Cache()
         c.build(c.iTOS)
     parse_attributes(c)
     
@@ -72,8 +70,8 @@ def parse_attributes( constants):
 
 def parse_links(c = None):
     if c == None:
-        c = constants()
-        c.build(constants.iTOS)
+        c = Cache()
+        c.build(Cache.iTOS)
         luautil.init()
         
     parse_links_jobs(c)

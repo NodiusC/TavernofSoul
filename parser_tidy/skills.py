@@ -6,42 +6,42 @@ Created on Thu Sep 23 08:55:17 2021
 """
 
 import csv
+import io
 import logging
+import luautil
 import math
 import os
 import re
-import io
-from os.path import exists
-from DB import ToS_DB as constants
-from DB import TOSElement, TOSAttackType
-import luautil
 
-EFFECT_DEPRECATE = {
-    'SkillAtkAdd': 'SkillFactor'
-}
+from cache import TOSParseCache as Cache
+from cache import TOSElement, TOSAttackType
+from os.path import exists
+
+EFFECT_DEPRECATE = { 'SkillAtkAdd': 'SkillFactor' }
 
 EFFECTS = []
+
 class TOSRequiredStanceCompanion():
     BOTH = 0
-    NO = 1
+    NO   = 1
     SELF = 2
-    YES = 3
+    YES  = 3
 
     @staticmethod
     def value_of(string):
         return {
             'BOTH': TOSRequiredStanceCompanion.BOTH,
-            '': TOSRequiredStanceCompanion.NO,
+            ''    : TOSRequiredStanceCompanion.NO,
             'SELF': TOSRequiredStanceCompanion.SELF,
-            'YES': TOSRequiredStanceCompanion.YES,
+            'YES' : TOSRequiredStanceCompanion.YES
+        
         }[string.upper()]
-
 
 def parse(c = None):
     
     is_rebuild = True
     if c == None:
-        c = constants()
+        c = Cache()
         c.build('ktest')
         luautil.init(c)
     c.skills={}
@@ -337,8 +337,8 @@ def parse_skills_script(constants):
 
 def parse_links(c = None):
     if c == None:
-        c = constants()
-        c.build(constants.iTOS)
+        c = Cache()
+        c.build(Cache.iTOS)
     parse_links_gems(c)
     c = parse_links_jobs(True,c)
 

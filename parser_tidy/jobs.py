@@ -5,17 +5,15 @@ import logging
 import os
 import io
 from os.path import exists
-from DB import ToS_DB as constants
+from cache import TOSParseCache as Cache
 
 
 def parse(c = None):
     if (c==None):
-        c = constants()
+        c = Cache()
         c.build()
     parse_jobs(c)
     parse_jobs_stats(c)
-
-
 
 def parse_jobs(constants):
     logging.info('Parsing Jobs...')

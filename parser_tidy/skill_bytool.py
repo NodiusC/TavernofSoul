@@ -1,6 +1,5 @@
 import logging
 import glob
-from DB import ToS_DB as constants
 import xml.etree.ElementTree as ET
 import os
 import luautil

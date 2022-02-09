@@ -22,11 +22,10 @@ from Jobs.models import Jobs
 from Skills.models import Skills, Stance
 from Attributes.models import Attributes
 class Command(BaseCommand):
-    item_path = join(settings.JSON_ROOT, 'items_by_name.json')
     monster_path = join(settings.JSON_ROOT, 'monster.json')
     item_monster_path = join(settings.JSON_ROOT, 'item_monster.json')
     npc_path = join(settings.JSON_ROOT, 'npc.json')
-    item_path = join(settings.JSON_ROOT, 'items_by_name.json')
+    item_path = join(settings.JSON_ROOT, 'items.json')
     item_type_path = join(settings.JSON_ROOT, 'item_type.json')
     base_path               = settings.JSON_ROOT
     maps_path               = join(base_path, 'maps.json')

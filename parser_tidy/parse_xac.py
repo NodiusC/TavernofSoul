@@ -4,57 +4,67 @@ Created on Wed Jan 26 09:49:44 2022
 
 @author: CPPG02619
 """
-from DB import ToS_DB as constants
-import csv 
-from os.path import join, exists, split
-from os import mkdir
-import subprocess
+
+import csv
 import logging
+import subprocess
+
+from cache import TOSParseCache as Cache
+from os import mkdir
+from os.path import exists, join, split
 
 def parse_xac(c = None):
-    if c==None:
-        c = constants()
+    if c == None:
+        c = Cache()
         c.build('itos')
-    xac= {}
+    
+    xac = {}
+
     ies_path = c.file_dict['xac.ies']['path']
+
     with open(ies_path, 'r', encoding="utf-8") as ies_file:
         for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
             xac[row['ClassName'].lower()] = row
-            
+    
     c.data['xac'] = xac
 
-def getModelNamePrefix(i):
+def get_model_name_prefix(i):
     better = {
             'WAR' : 'warrior',
             'CLR' : 'cleric',
             'WIZ' : 'wizard',
             'ARC' : 'archer',
-        }
+    }
     
     i = i.split("_")
-    if len(i)<3:
+
+    if len(i) < 3:
         return ''
+    
     add_on = "{}_{}".format(better[i[1]], i[2].lower())
+
     return add_on
 
 def getModelPrefixAdv(i):
     if i['UseJob'] == 'All':
-        job= 'warrior'
+        job = 'warrior'
     else:
         return ""
+    
     if i['UseGender'] == 'Female':
         gender = 'f'
     else:
         gender = 'm'
+    
     return "{}_{}".format(job, gender)
 
 def eq_model_name(item, c):
-    #item = c.data['items']['0511004019']
+    #item = c.data['items']['0511004019'] # Please use ClassName if updated
     xac = c.data['xac']
     if 'Icon' not in item:
         return ''
     model_name = item['FileName']
-    prefix = getModelNamePrefix(item['ModelType'])
+    prefix = get_model_name_prefix(item['ModelType'])
     if prefix:
         name  = prefix+"_"+ model_name
     else:

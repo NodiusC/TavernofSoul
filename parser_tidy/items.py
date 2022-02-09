@@ -4,48 +4,50 @@ Created on Mon Sep 20 11:18:38 2021
 
 @author: Temperantia
 """
-import os
-from os.path import exists
-import logging
-from DB import ToS_DB as constants
+
 import csv
 import io
+import logging
 import luautil
-from math import floor
-import xml.etree.ElementTree as ET
+import os
 import parse_xac
-# from shared.ipf/item_calculate.lua
+import xml.etree.ElementTree as ET
+
+from cache import TOSParseCache as Cache
+from math import floor
+from os.path import exists
+
 EQUIPMENT_STAT_COLUMNS = []
 
 equipment_grade_ratios = {}
 goddess_atk_list       = {}
 
-log = logging.getLogger("parse.items")
-log.setLevel("INFO")
+log = logging.getLogger("Parse.Items")
+log.setLevel(logging.INFO)
 
 def escaper(string):
-    string = str(string)
-    escaped = string.translate(str.maketrans({"-":  r"\-",
-                                          "]":  r"\]",
-                                          "\\": r"\\",
-                                          "^":  r"\^",
-                                          "$":  r"\$",
-                                          "*":  r"\*",
-                                          ".":  r"\.",
-                                          "'" : r"\'",
-                                          '"' : r'\"',
-                                          ',' :r''
-                                          
-                                          }))
-    return escaped
+    return str(string).translate(str.maketrans({
+        '\-': r'\-',
+        '\]': r'\]',
+        '\\': r'\\',
+        '\^': r'\^',
+        '\$': r'\$',
+        '\*': r'\*',
+        '\.': r'\.',
+        '\'': r'\'',
+        '\"': r'\"',
+        '\,': r''
+    }))
+
 def parse(c = None, from_scratch = True):
     if c == None:
-        c = constants()
+        c = Cache()
         c.build("jtos")
         luautil.init(c)
+    
     if (from_scratch):
         c.data['items'] = {}
-        c.data['items_by_name'] = {}
+
         c.cubes_by_stringarg = {}
         c.equipment_sets = {}
         item_ies = c.ITEM_IES
@@ -62,9 +64,7 @@ def parse(c = None, from_scratch = True):
     global equipment_grade_ratios        
     equipment_grade_ratios = c.data['equipment_grade_ratios']
     
-    
     parse_goddess_reinf(c)
-    
     
     for i in equipment_ies:    
         parse_equips(c, i)
@@ -153,8 +153,8 @@ def parse_items(constants, file_name):
         obj['Link_RecipeMaterial'] = []
         if item_type == 'CUBE':
             constants.cubes_by_stringarg[row['StringArg']] = obj
-        constants.data['items'][obj['$ID']] = obj
-        constants.data['items_by_name'] [obj['$ID_NAME']] = obj
+        
+        constants.data['items'][obj['$ID_NAME']] = obj
     
     
     ies_file.close()
@@ -185,8 +185,7 @@ def parse_equips(constants, filename):
     objs = []
     types = []
     for row in ies_reader:
-      
-        if str(row['ClassName']) not in constants.data['items_by_name'].keys():
+        if str(row['ClassName']) not in constants.data['items'].keys():
             continue
             
         item_grade = equipment_grade_ratios[int(row['ItemGrade'])]
@@ -194,7 +193,7 @@ def parse_equips(constants, filename):
         types.append(row['ClassType'])
         rows.append(row)
         #continue
-        obj = constants.data['items_by_name'][str(row['ClassName'])]
+        obj = constants.data['items'][str(row['ClassName'])]
         
         if obj['$ID_NAME'] not in constants.data['item_type']['EQUIPMENT']:
             constants.data['item_type']['EQUIPMENT'].append(obj['$ID_NAME'])
@@ -378,8 +377,7 @@ def parse_equips(constants, filename):
             obj['FileName'] = ''
         """
         obj['model'] = parse_xac.eq_model_name(row,constants)
-        constants.data['items'][obj['$ID']] = obj
-        constants.data['items_by_name'] [obj['$ID_NAME']] = obj
+
         rows.append(row)
         objs.append(obj)
     return constants
@@ -470,8 +468,9 @@ def parse_links_equipment_sets(file_name, constants):
 
             if item_name == '':
                 continue
-            if (item_name in constants.data['items_by_name'].keys()):
-                item = constants.data['items_by_name'][item_name]
+
+            if item_name in constants.data['items'].keys():
+                item = constants.data['items'][item_name]
             else:
                 continue
 
@@ -497,15 +496,13 @@ def parse_cards(constants):
         if row['GroupName'] != 'Card':
             continue
         
-        obj = constants.data['items_by_name'][row['ClassName']]
+        obj = constants.data['items'][row['ClassName']]
         constants.data['item_type']['CARD'].append(obj['$ID_NAME'])
         
         obj['Description'] = obj['Description']
         obj['IconTooltip'] = constants.parse_entity_icon(row['TooltipImage'])
         obj['TypeCard'] = row['CardGroupName']
         obj['Type']         = 'CARD'
-        constants.data['items'] [obj['$ID']] = obj
-        constants.data['items_by_name'] [obj['$ID_NAME']] = obj
 
     ies_file.close()
     return constants
@@ -523,12 +520,11 @@ def parse_cards_battle(constants):
     ies_reader = csv.DictReader(ies_file, delimiter=',', quotechar='"')
 
     for row in ies_reader:
-        obj = constants.data['items_by_name'][row['ClassName']]
+        obj = constants.data['items'][row['ClassName']]
 
         obj['Stat_Height'] = int(row['Height'])
         obj['Stat_Legs'] = int(row['LegCount'])
         obj['Stat_Weight'] = int(row['BodyWeight'])
-        constants.data['items'] [obj['$ID']] = obj
 
     ies_file.close()
     return constants
@@ -548,7 +544,7 @@ def parse_links_cubes(constants):
         constants.data['item_type']['CUBES'] = []
     a = []
     for row in ies_reader:
-        if row['Group'] not in constants.data['items_by_name']:
+        if row['Group'] not in constants.data['items']:
             continue
         
         if row['Group'] not in constants.cubes_by_stringarg:
@@ -560,9 +556,8 @@ def parse_links_cubes(constants):
         if not 'Link_Items' in cube.keys():
             cube['Link_Items'] = []
         try:
-            cube['Link_Items'].append(constants.data['items_by_name'][row['ItemName']]['ID_NAME'])
-            constants.data['items'] [cube['$ID']] = cube
-            constants.data['items_by_name'] [cube['$ID_NAME']] = cube
+            cube['Link_Items'].append(constants.data['items'][row['ItemName']]['ID_NAME'])
+            constants.data['items'][cube['$ID_NAME']] = cube
         except:
             print("key error ... {} for {} cube".format(row['ItemName'], cube['Name']))
     
@@ -583,10 +578,10 @@ def parse_links_collections(constants):
     ies_reader = csv.DictReader(ies_file, delimiter=',', quotechar='"')
 
     for row in ies_reader:
-        if row['ClassName'] not in constants.data['items_by_name']:
+        if row['ClassName'] not in constants.data['items']:
             continue
 
-        collection = constants.data['items_by_name'][row['ClassName']]
+        collection = constants.data['items'][row['ClassName']]
         constants.data['item_type']['COLLECTION'].append(collection['$ID_NAME'])
         collection['Type']         = 'COLLECTION'
         if not 'Link_Items' in collection.keys():
@@ -599,7 +594,7 @@ def parse_links_collections(constants):
             if item_name == '':
                 continue
 
-            collection['Link_Items'].append(constants.data['items_by_name'][item_name]['$ID_NAME'])
+            collection['Link_Items'].append(constants.data['items'][item_name]['$ID_NAME'])
 
         # Parse bonus
         bonus = row['PropList'].split('/') + row['AccPropList'].split('/')
@@ -613,8 +608,6 @@ def parse_links_collections(constants):
                     parse_links_items_bonus_stat(bonus[i]),   # Property
                     int(bonus[i + 1])                         # Value
                 ])
-        constants.data['items'][collection['$ID']] = collection
-        constants.data['items_by_name'][collection['$ID_NAME']] = collection
     ies_file.close()
     return constants
 
@@ -668,8 +661,9 @@ def parse_gems(constants):
     ies_reader = csv.DictReader(ies_file, delimiter=',', quotechar='"')
     if 'GEMS' not in constants.data['item_type']:
         constants.data['item_type']['GEMS'] = []
+
     for row in ies_reader:
-        obj = constants.data['items_by_name'][row['ClassName']]
+        obj = constants.data['items'][row['ClassName']]
         constants.data['item_type']['GEMS'].append(obj['$ID_NAME'])
         obj['BonusBoots'] = []
         obj['BonusGloves'] = []
@@ -677,8 +671,6 @@ def parse_gems(constants):
         obj['BonusTopAndBottom'] = []
         obj['BonusWeapon'] = []
         obj['TypeGem'] = row['EquipXpGroup']
-        constants.data['items_by_name'][row['ClassName']] = obj
-        constants.data['items'][obj['$ID']] = obj
     ies_file.close()
     return constants
 
@@ -697,7 +689,7 @@ def parse_gems_bonus(constants):
     # example: <Item Name="gem_circle_1">
     for item in xml:
         try:
-            gem = constants.data['items_by_name'][item.get('Name')]
+            gem = constants.data['items'][item.get('Name')]
         except:
             logging.warning('gem not found {}'.format(item.get('Name')))
             continue
@@ -727,7 +719,7 @@ def parse_gems_bonus(constants):
                                     'Stat': stat,
                                     'Value': int(prop_slot[1])
                                 })
-            constants.data['items'][gem['$ID']] = gem
+            # constants.data['items'][gem['$ID']] = gem
 
 
 def parse_gems_slot(key):
@@ -754,7 +746,7 @@ def parse_links_skills(constants):
             continue
         skill = constants.data['skills_by_name'][skill]['$ID']
         gem['Link_Skill'] = skill
-        constants.data['items'][gem['$ID']] = gem
+        constants.data['items'][gem['$ID_NAME']] = gem
         
 
 
@@ -771,17 +763,17 @@ def parse_links_recipes(constants):
     if 'RECIPES' not in constants.data['item_type']:
          constants.data['item_type']['RECIPES'] = []
     for row in ies_reader:
-        recipe = constants.data['items_by_name'][row['ClassName']]
+        recipe = constants.data['items'][row['ClassName']]
         constants.data['item_type']['RECIPES'].append(recipe['$ID_NAME'])
-        if row['TargetItem'] in constants.data['items_by_name'] :
-            recipe['Link_Target'] = constants.data['items_by_name'][row['TargetItem']]['$ID_NAME']
+        if row['TargetItem'] in constants.data['items']:
+            recipe['Link_Target'] = constants.data['items'][row['TargetItem']]['$ID_NAME']
         else:
             log.warning('recipe target not found {}'.format( row['TargetItem']))
             continue
         recipe['Name'] = 'Recipe - Unknown'
         recipe['Type'] = "RECIPES"
         if recipe['Link_Target'] is not None:
-            recipe['Name'] = 'Recipe - ' + constants.data['items_by_name'][row['TargetItem']]['Name']
+            recipe['Name'] = 'Recipe - ' + constants.data['items'][row['TargetItem']]['Name']
 
         # Parse ingredients
         for i in range(1, 6):
@@ -789,19 +781,18 @@ def parse_links_recipes(constants):
                 continue
 
             obj = {}
-            if (row['Item_' + str(i) + '_1'] not in constants.data['items_by_name'].keys()):
+            if row['Item_' + str(i) + '_1'] not in constants.data['items'].keys():
                 logging.warn("missing item {} for recipe {}".format(row['Item_' + str(i) + '_1'], recipe['Name']))
                 continue
             
-            obj['Item'] = constants.data['items_by_name'][row['Item_' + str(i) + '_1']]['$ID_NAME']
+            obj['Item'] = constants.data['items'][row['Item_' + str(i) + '_1']]['$ID_NAME']
             obj['Quantity'] = int(row['Item_' + str(i) + '_1_Cnt'])
             
             if 'Link_Materials' not in recipe.keys():
                 recipe['Link_Materials'] = []
                 
             recipe['Link_Materials'].append(obj)
-            
-        constants.data['items'][recipe['$ID']] = recipe
+
     ies_file.close()
 
 def parse_gem_bernice(constants):
@@ -830,17 +821,15 @@ def parse_books_dialog(constants):
     if 'BOOKS' not in constants.data['item_type']:
         constants.data['item_type']['BOOKS'] = []
     for row in ies_reader:
-        if row['ClassName'] not in constants.data['items_by_name']:
+        if row['ClassName'] not in constants.data['items']:
             continue
-        book = constants.data['items_by_name'][row['ClassName']]
+        book = constants.data['items'][row['ClassName']]
         constants.data['item_type']['BOOKS'].append(book['$ID_NAME'])
         if 'Text' not in book:
             book['Text'] = None
         
         book['Text'] = constants.translate(row['Text'])
         b.append(book)
-        constants.data['items'][book['$ID']] = book
-        constants.data['items_by_name'][book['$ID_NAME']] = book
     
     ies_file.close()
 

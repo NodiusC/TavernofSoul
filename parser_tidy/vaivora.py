@@ -78,11 +78,11 @@ def createdict(c):
 def parse(c):
     logging.warning("parsing vaivoras")
     items = c.data['items']
-    if len(c.data['items']) ==0:
+    if len(c.data['items']) == 0:
         logging.warning("items are empty ?")
         return
     vvrs = []
-    if c.region == 'jtos':
+    if c.REGION == 'jtos':
         vv_name = 'バイボラ秘伝'
     else:
         vv_name = "Vaivora Vision"
@@ -113,9 +113,8 @@ def parse(c):
         else:
             v['tl'] = ""
     for v in vvrs:
-        if v['tl'] != "" and "Bonus" in c.data['items_by_name'][v['$ID_NAME']]:
-            c.data['items_by_name'][v['$ID_NAME']]['Bonus'].append(['-', v['tl']])
-            c.data['items'][v['$ID']]   = c.data['items_by_name'][v['$ID_NAME']]
+        if v['tl'] != '' and 'Bonus' in c.data['items'][v['$ID_NAME']]:
+            c.data['items'][v['$ID_NAME']]['Bonus'].append(['-', v['tl']])
         
 
 def getclass_fromstring(c, string):
@@ -164,7 +163,7 @@ def getclass_vv(c):
             
     vvs = []
     for i in vv4:
-        vvs.append(c.data['items'][i['$ID']])
+        vvs.append(c.data['items'][i['$ID_NAME']])
      
     
     for item in vvs:

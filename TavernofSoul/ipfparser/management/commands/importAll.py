@@ -62,11 +62,10 @@ class Command(BaseCommand):
     attributes_path         = "attributes.json"
     skills_path             = "skills.json"
     skills_by_name_path     = "skills_by_name.json"
-    item_path               = 'items_by_name.json'
     monster_path            = 'monsters.json'
     item_monster_path       = 'item_monster.json'
     npc_path                = 'npcs.json'
-    item_path               = 'items_by_name.json'
+    item_path               = 'items.json'
     item_type_path          = 'item_type.json'
     version_path            = 'version.json'
     buff_path               = 'buff.json'

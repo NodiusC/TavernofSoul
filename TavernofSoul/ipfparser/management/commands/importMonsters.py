@@ -24,7 +24,7 @@ from Items.models import Items
 from Monsters.models import Monsters, Item_Monster, Skill_Monster
 
 class Command(BaseCommand):
-    item_path = join(settings.JSON_ROOT, 'items_by_name.json')
+    item_path = join(settings.JSON_ROOT, 'items.json')
     monster_path = join(settings.JSON_ROOT, 'monster.json')
     item_monster_path = join(settings.JSON_ROOT, 'item_monster.json')
     npc_path = join(settings.JSON_ROOT, 'npc.json')

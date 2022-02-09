@@ -11,11 +11,11 @@ import logging
 import os
 import io
 from os.path import exists
-from DB import ToS_DB as constants
+from cache import TOSParseCache as Cache
 
 def parse_achievements(c = None):
     if c == None:
-        c = constants()
+        c = Cache()
         c.build('itos')
     achievements(c)
 

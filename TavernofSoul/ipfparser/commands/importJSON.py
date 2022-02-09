@@ -23,7 +23,7 @@ from Items.models import Items
 import asyncio
 
 class Command(BaseCommand):
-    item_path = join(settings.JSON_ROOT, 'items_by_name.json')
+    item_path = join(settings.JSON_ROOT, 'items.json')
     
     def importJSON(self, file):
         if not exists(file):

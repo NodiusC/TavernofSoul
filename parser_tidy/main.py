@@ -5,77 +5,76 @@ Created on Thu Sep 23 11:17:20 2021
 @author: Temperantia
 """
 
-from DB import ToS_DB as constants
-from os.path import join
-import os
-
-import logging
-import translation
-import jobs
-import skills
-import attributes
-import luautil
 import asset
-import json
-import items
-import monsters
-import maps
+import attributes
 import buff
-import vaivora
-import sys
+import items
+import jobs
+import json
+import logging
+import luautil
+import maps
 import misc
-import skill_bytool
+import monsters
+import os
 import parse_xac
-from item_static import add_item_static
-import csv
+import skills
+import skill_bytool
+import sys
+import translation
+import vaivora
 
+from cache import TOSParseCache as Cache
+from items_static import insert_static
+from os.path import join
 
-def print_version(filename, data):
-    out = [ [key, data[key]] for key in data]
-    with open(filename, 'w') as f:  # You will need 'wb' mode in Python 2.x
-        w = csv.writer(f)
-        w.writerows(out)
+def revision_txt_write(revision_txt, revision):
+    revision = str(revision)
+    
+    with open(revision_txt, 'w') as file:
+        file.write(revision)
 
-def read_version(filename):
-    rev = {}
-    with open(filename, 'r') as f:
-        w = csv.reader(f)
-        for lines in w:
-            if len(lines)<2:
-                continue
-            rev[lines[0]] = lines[1]
-    return rev
+def revision_txt_read(revision_txt):
+    if os.path.isfile(revision_txt):
+        with open(revision_txt, 'r') as file:
+            return file.readline()
+    else:
+        return 0
 
-            
-    return rev
-if __name__ == "__main__":
+if __name__ == '__main__':
     try:
-        region = sys.argv[1]
-        region = region.lower()
-        accepted = ['itos','ktos','ktest', 'jtos', 'twtos']
-        if region not in accepted:
-            logging.warning("region unsupported")
+        region = sys.argv[1].lower()
+
+        if region not in ['itos', 'ktos', 'ktest', 'jtos']:
+            logging.warning('Region has not been supported yet')
             quit()
+        
     except:
-        logging.warning("need 1 positional argument; region")
+        logging.warning('Missing Argument: Region')
         quit()
     
-    c= constants()
-    current_version = read_version('parser_version.csv')
-    #version = c.importJSON(join("..", 'unpacker_version_{}.txt'.format(region.lower())))['patched'][-1]
-    version = read_version(join("..", 'downloader', 'revision.csv'))
-    if(version[region] == current_version[region]) and ('-f' not in sys.argv):
-        logging.warning("ipf up to date")
+    c = Cache()
+
+    current_version = revision_txt_read('parser_version_{}.txt'.format(region.lower()))
+    
+    version = revision_txt_read(join('..', 'downloader', 'revision_{}.txt'.format(region)))
+
+    if version == current_version and '-f' not in sys.argv:
+        logging.warning('IPF is already update to date')
         quit()
         
     c.build(region)
+
     parse_xac.parse_xac(c)
+
     luautil.init(c)
-    no_tl = ['ktos', 'ktest']
-    asset.parse(c)
-    if (region not in no_tl):
+
+    no_translation = ['ktos', 'ktest']
+
+    if (region not in no_translation):
         translation.makeDictionary(c)
-      
+    
+    asset.parse(c)
     jobs.parse(c)
     skill_bytool.parse(c)
     skills.parse(c)
@@ -85,10 +84,12 @@ if __name__ == "__main__":
     skills.parse_clean(c)
     buff.parse(c)
     items.parse(c)
-    if (region not in no_tl):
+
+    if (region not in no_translation):
         vaivora.parse(c)
         vaivora.parse_lv4(c)
-    add_item_static(c)
+    
+    insert_static(c)
     
     items.parse_goddess_EQ(c)
     
@@ -102,13 +103,9 @@ if __name__ == "__main__":
     misc.parse_achievements(c)
     #c.export_one("achievements")    
     
-    c.export()
-    
-    current_version[region] = version[region]
-    print_version('parser_version.csv', current_version)
-    v = {'version' : "{}_001001.ipf".format(version[region])}
+    c.export_all()
+
+    revision_txt_write('parser_version_{}.txt'.format(region.lower()), version)
+    v = {'version' : "{}_001001.ipf".format(version)}
     with open(join(c.BASE_PATH_OUTPUT, 'version.json'), "w") as f:
         json.dump(v,f)
-       
-   
-   

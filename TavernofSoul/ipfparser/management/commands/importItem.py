@@ -27,7 +27,7 @@ from Items.models import Equipment_Set
 
 
 class Command(BaseCommand):
-    item_path               = join(settings.JSON_ROOT, 'items_by_name.json')
+    item_path               = join(settings.JSON_ROOT, 'items.json')
     item_type_path          = join(settings.JSON_ROOT, 'item_type.json')
     base_path               = settings.JSON_ROOT
     maps_path               = join(base_path, 'maps.json')

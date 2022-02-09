@@ -9,7 +9,6 @@ import csv
 import logging
 import os
 import io
-from DB import ToS_DB as constants
 
 
 def load(ies_name,c):

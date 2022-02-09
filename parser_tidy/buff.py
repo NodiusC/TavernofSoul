@@ -3,7 +3,6 @@
 Created on Thu Sep 23 08:55:17 2021
 
 @author: CPPG02619
-
 """
 
 import csv
@@ -11,13 +10,13 @@ import logging
 import os
 import io
 from os.path import exists
-from DB import ToS_DB as constants
+from cache import TOSParseCache as Cache
 
 
 def parse(c = None):
     logging.warning('Parsing buffs...')
     if c == None:
-        c = constants()
+        c = Cache()
         c.build()
         
     parse_buff('buff_hardskill.ies',c )

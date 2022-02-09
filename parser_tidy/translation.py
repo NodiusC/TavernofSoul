@@ -10,23 +10,23 @@ create dictionary csv for future translation of game aspects
 """
 
 import csv
-from os.path import join, exists
-import xml.etree.ElementTree as ET
-from DB import ToS_DB
-import os
 import logging
+import os
+import xml.etree.ElementTree as ET
 
+from cache import TOSParseCache as Cache
+from os.path import join, exists
 
 TRANSLATION_PREFIX = '@dicID_^*$'
 TRANSLATION_SUFFIX = '$*^'
 
-def parseDict(translations,c):
-    #parsing the dictionary in language.ipf, translate it to dictionary from
-    #language.tsv 
-    
+# Parse the dictionary in language.ipf and translate it to dictionary from language.tsv
+def parse_dictionary(translations, c):
     translations_all = {}
     dictionary_path = join(c.PATH_INPUT_DATA,"language.ipf", "wholeDicID.xml")
-    ies_path = c.file_dict[ "wholeDicID.xml".lower()]['path']
+
+    ies_path = c.file_dict["wholeDicID.xml".lower()]['path']
+
     if (not exists (dictionary_path)):
         return {}
     dictionary = ET.parse(dictionary_path).getroot()
@@ -49,13 +49,14 @@ def parseDict(translations,c):
                     value_translated = value_translated.replace(TRANSLATION_PREFIX + dicid + TRANSLATION_SUFFIX, translation)
     
             translations_all[key] = value_translated
+    
     return translations_all
 
 def parseTranslation(c):
     # opening the language csv ( there's various language, currently only using english)
     
     result = {}
-    translation_path = c.transaltion_path
+    translation_path = c.TRANSLATION_PATH
     for translation in os.listdir(translation_path):
         if(translation == '.git'):
             continue
@@ -72,11 +73,11 @@ def parseTranslation(c):
 
 def makeDictionary(c = None):
     if (c == None):
-        c = ToS_DB()
+        c = Cache()
         c.build()
     
     translation = parseTranslation(c)
-    dictionary = parseDict(translation,c)
+    dictionary = parse_dictionary(translation,c)
     if dictionary!= {}:    
         c.data['dictionary'] = dictionary
 

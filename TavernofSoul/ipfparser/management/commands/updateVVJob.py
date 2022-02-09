@@ -36,7 +36,7 @@ class Command(BaseCommand):
     
     
     def handle(self,  *args, **kwargs):
-        file = 'items_by_name.json'
+        file = 'items.json'
         items = importJSON(file)
         
         if settings.REGION == 'jtos':

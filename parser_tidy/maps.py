@@ -12,7 +12,7 @@ import re
 from os.path import exists
 from PIL import Image, ImageDraw, ImageColor, ImageFilter, ImageOps, ImageChops
 
-from DB import ToS_DB as constants
+from cache import TOSParseCache as Cache
 import luautil
 
 import  imageutil
@@ -38,7 +38,7 @@ def trim(image):
 
 def parse(c = None):
     if (c==None):
-        c = constants()
+        c = Cache()
         c.build(c.iTOS)
     try:
         os.mkdir(c.PATH_BUILD_ASSETS_IMAGES_MAPS)
@@ -104,7 +104,7 @@ def parse_maps_images(constants):
             map = constants.data['maps_by_name'][row['ClassName']]
             if (exists(image_path) and map['bbox'] != [0,0,0,0]):
                 continue
-            polygons = constants.importJSON(os.path.join('maps_poly',row['ClassName'].lower()+'poly.json'))
+            polygons = constants.import_json(os.path.join('maps_poly',row['ClassName'].lower()+'poly.json'))
             if polygons == {}:
                 continue
             # Scale map to save some space
@@ -145,7 +145,7 @@ def parse_maps_images(constants):
 
 def parse_links(c = None):
     if (c==None):
-        c = constants()
+        c = Cache()
         c.build(c.iTOS)
     c.data['map_item'] = []
     parse_links_items(c)
@@ -229,7 +229,7 @@ def parse_links_items(constants):
                     try:
                         map_item = {
                             'Chance': drop['DropRatio'],
-                            'Item': constants.data['items_by_name'][drop['ItemClassName']]['$ID'],
+                            'Item': constants.data['items'][drop['ItemClassName']]['$ID'],
                             'Map': constants.data['maps_by_name'][map['$ID_NAME']]['$ID'],
                             'Quantity_MAX': drop['Money_Max'],
                             'Quantity_MIN': drop['Money_Min'],
@@ -253,7 +253,7 @@ def parse_links_items_rewards(constants):
             if int(row['MapRatingRewardCount1']) == 0 or len(row['MapRatingRewardItem1']) == 0:
                 continue
 
-            item_link = constants.data['items_by_name'][row['MapRatingRewardItem1']]
+            item_link = constants.data['items'][row['MapRatingRewardItem1']]
             map = constants.data['maps_by_name'][row['ClassName']]
             map_item = map['$ID']
             map_item = {
@@ -379,9 +379,9 @@ def parse_links_npcs(constants):
             # Link everyone
             for anchor_name in anchors_by_npc.keys():
                 anchor = anchors_by_npc[anchor_name]
-
-                if anchor_name in constants.data['items_by_name']:
-                    item = constants.data['items_by_name'][anchor_name]
+                
+                if anchor_name in constants.data['items']:
+                    item = constants.data['items'][anchor_name]
                     item_link = item['$ID']
                     position = []
                     new_pos = []

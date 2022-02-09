@@ -8,12 +8,12 @@ Created on Fri Dec 17 08:38:06 2021
 import csv
 import logging
 import io
-from DB import ToS_DB as constants
+from cache import TOSParseCache as Cache
 import xml.etree.ElementTree as ET
 
 def parse(c = None):
     if c == None:
-        c = constants()
+        c = Cache()
         c.build("itos")
         
 def parseChar(c):
