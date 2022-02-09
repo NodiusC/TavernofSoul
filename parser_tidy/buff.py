@@ -9,7 +9,7 @@ import csv
 import logging
 import os
 import io
-from os.path import exists
+from os.path import exists, join
 from cache import TOSParseCache as Cache
 
 
@@ -29,8 +29,7 @@ def parse_buff(filename, constants):
     logging.debug('Parsing buffs...')
 
 
-    #ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies.ipf', filename)
-    ies_path = constants.file_dict[filename.lower()]['path']
+    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', filename)
     if(not exists(ies_path)):
        return
     rows = []

@@ -10,6 +10,7 @@ import logging
 import io
 from cache import TOSParseCache as Cache
 import xml.etree.ElementTree as ET
+from os.path import join
 
 def parse(c = None):
     if c == None:
@@ -18,7 +19,7 @@ def parse(c = None):
         
 def parseChar(c):
     logging.warning('Parsing char exp...')
-    ies_path = c.file_dict["xp.ies"]['path']
+    ies_path = join(c.PATH_INPUT_DATA, 'ies.ipf', 'xp.ies')
     rows    = []
     exp     = []
     with io.open(ies_path, 'r', encoding = 'utf-8') as ies_file:
@@ -33,7 +34,7 @@ def parseChar(c):
 
 def parsePetAssister(c):
     logging.warning('Parsing char exp...')
-    ies_path    = c.file_dict["pet_exp.xml"]['path']
+    ies_path    = join(c.PATH_INPUT_DATA, 'xml.ipf', 'pet_exp.xml')
     data        = ET.parse(ies_path).getroot()
     pet         = [i.attrib for i in data[0]]
     assister    = [i.attrib for i in data[2]]

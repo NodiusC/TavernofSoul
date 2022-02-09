@@ -25,10 +25,9 @@ def parse_dictionary(translations, c):
     translations_all = {}
     dictionary_path = join(c.PATH_INPUT_DATA,"language.ipf", "wholeDicID.xml")
 
-    ies_path = c.file_dict["wholeDicID.xml".lower()]['path']
-
-    if (not exists (dictionary_path)):
+    if not exists(dictionary_path):
         return {}
+        
     dictionary = ET.parse(dictionary_path).getroot()
  
     # example: <file name="xml\item_Equip.xml">

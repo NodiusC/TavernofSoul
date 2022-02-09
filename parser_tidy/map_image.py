@@ -8,9 +8,8 @@ Created on Tue Oct  5 11:54:34 2021
 
 import csv
 import logging
-import os
 
-from os.path import exists
+from os.path import exists, join
 from cache import TOSParseCache as Cache
 import json
 
@@ -24,17 +23,16 @@ def parse_maps_images(c):
     """
     logging.debug('Parsing Maps images...')
 
-    #ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies.ipf', 'map.ies')
-    ies_path = c.file_dict['map.ies']['path']
+    ies_path = join(c.PATH_INPUT_DATA, 'ies.ipf', 'map.ies')
 
     with open(ies_path, 'rb') as ies_file:
         for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
-            if exists (os.path.join('maps_poly',row['ClassName'].lower()+'poly.json')):
+            if exists (join('maps_poly',row['ClassName'].lower()+'poly.json')):
                 continue
-            image_path = os.path.join(c.PATH_BUILD_ASSETS_IMAGES_MAPS, row['ClassName'].lower() + '.png')
-            tok_path = os.path.join(c.PATH_INPUT_DATA, 'bg.ipf', row['ClassName'].lower() + '.tok')
+            image_path = join(c.PATH_BUILD_ASSETS_IMAGES_MAPS, row['ClassName'].lower() + '.png')
+            tok_path = join(c.PATH_INPUT_DATA, 'bg.ipf', row['ClassName'].lower() + '.tok')
 
-            if not os.path.exists(tok_path):
+            if not exists(tok_path):
                 continue
 
             # Parse .tok mesh file
@@ -64,7 +62,7 @@ def parse_maps_images(c):
             del mesh3DVerts
             del mappingTo2D
             del tok_xml
-            with open(os.path.join('maps_poly',row['ClassName'].lower()+'poly.json'), 'w') as f:
+            with open(join('maps_poly',row['ClassName'].lower()+'poly.json'), 'w') as f:
                 json.dump(polygons,f)
 
 import sys

@@ -9,7 +9,7 @@ import csv
 import logging
 import os
 import re
-from os.path import exists
+from os.path import exists, join
 from PIL import Image, ImageDraw, ImageColor, ImageFilter, ImageOps, ImageChops
 
 from cache import TOSParseCache as Cache
@@ -50,8 +50,7 @@ def parse(c = None):
 def parse_maps(constants):
     logging.debug('Parsing Maps...')
 
-    #ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies.ipf', 'map.ies')
-    ies_path = constants.file_dict['map.ies']['path']
+    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'map.ies')
     rows = []
     with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
@@ -94,8 +93,7 @@ def parse_maps_images(constants):
     log = logging.getLogger("parse.items")
     log.setLevel("INFO")
 
-    ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies.ipf', 'map.ies')
-    ies_path = constants.file_dict['map.ies']['path']
+    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'map.ies')
     rows = []
     with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
@@ -270,8 +268,7 @@ def parse_links_items_rewards(constants):
 def parse_links_maps(constants):
     logging.debug('Parsing Maps <> Maps...')
 
-    #ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies.ipf', 'map.ies')
-    ies_path = constants.file_dict['map.ies']['path']
+    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'map.ies')
     name = ''
     with open(ies_path, 'r', encoding='utf8') as ies_file:
         try:
@@ -297,8 +294,7 @@ def parse_links_maps(constants):
 def parse_links_npcs(constants):
     logging.debug('Parsing Maps <> NPCs...')
 
-    #ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies.ipf', 'map.ies')
-    ies_path = constants.file_dict['map.ies']['path']
+    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'map.ies')
     with open(ies_path, 'r', encoding = 'utf8') as ies_file:
         for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
             map = constants.data['maps_by_name'][row['ClassName']]
@@ -309,7 +305,7 @@ def parse_links_npcs(constants):
             anchors = {}
 
             # Spawn Positions (aka Anchors)
-            mongen_dir = os.listdir(os.path.join(constants.PATH_INPUT_DATA, 'ies_mongen.ipf'))
+            mongen_dir = os.listdir(join(constants.PATH_INPUT_DATA, 'ies_mongen.ipf'))
             path_insensitive= {}
             for item in mongen_dir:
                 path_insensitive[item.lower()] = item
@@ -321,7 +317,7 @@ def parse_links_npcs(constants):
                 logging.debug("maps not found {}".format(ies_file))
                 pass
             
-            ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies_mongen.ipf', ies_file)
+            ies_path = join(constants.PATH_INPUT_DATA, 'ies_mongen.ipf', ies_file)
             
             try:
                 with open(ies_path, 'r', encoding='utf8') as ies_file:
@@ -350,7 +346,7 @@ def parse_links_npcs(constants):
             try:
                 with open(ies_path, 'r', encoding='utf8') as ies_file:
                     for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
-                        if constants.getNPCbyName(row['ClassType']) is None:
+                        if constants.get_npc(row['ClassType']) is None:
                             continue
                         if row['GenType'] not in anchors:
                             continue
@@ -400,7 +396,7 @@ def parse_links_npcs(constants):
                     
 
                 elif anchor_name in constants.data['npcs_by_name'] or anchor_name in constants.data['monsters_by_name']:
-                    npc, types = constants.getNPCbyName(anchor_name)
+                    npc, types = constants.get_npc(anchor_name)
                     npc_link = npc['$ID']
                     position = []
                     new_pos = []
@@ -421,7 +417,7 @@ import pandas as pd
 def parseWorldMap(c):
     filename = 'map_area.ies'
     try:
-        ies_path = c.file_dict[filename]['path']
+        ies_path = join(c.PATH_INPUT_DATA, 'ies.ipf', filename)
     except:
         logging.warning('ies not found : %s'%(filename))
     with open(ies_path, 'r', encoding='utf-8') as f:

@@ -48,7 +48,7 @@ class TOSParseCache():
         'item_goddess_reinforce_470.ies': 470
     }
 
-    ITEM_IES = {
+    ITEM_IES = [
         "item.ies",
         'item_colorspray.ies',
         'item_gem.ies',
@@ -68,18 +68,15 @@ class TOSParseCache():
         'item_EP13.ies',
         'item_Equip_EP13.ies',
         'item_Reputation.ies',
-    }
-
-    file_dict = {}
+    ]
     
     data_build = ['assets_icons', 'maps', 'maps_by_name', 'maps_by_position']
         
     data = {
        'dictionary'            : {},
        'items'                 : {},
-       'cubes_by_stringarg'    : {},
+       'cube_contents'         : {},
        'equipment_sets'        : {},
-       'item_type'             : {},
        'equipment_sets_by_name': {},
        'assets_icons'          : {},
        'jobs'                  : {},
@@ -100,7 +97,7 @@ class TOSParseCache():
        'map_npc'               : [],
        'map_item_spawn'        : [],
        'skill_mon'             : {},
-       'equipment_grade_ratios': {},
+       'grade_ratios'          : {},
        'buff'                  : {},
        'achievements'          : {},
        'charxp'                : {},
@@ -144,8 +141,6 @@ class TOSParseCache():
         else:
             self.TRANSLATION_PATH                = "."
         
-        self.directory_dictionary(self.PATH_INPUT_DATA)
-        
         for i in self.data_build:
             self.data[i] = self.import_json(join(self.BASE_PATH_INPUT, "%s.json"%(i)))
     
@@ -156,37 +151,43 @@ class TOSParseCache():
         for i in self.data:
             self.export(i)
     
-    def reverse_dictionary(self, dicts):
-        a = {}
+    def get_monster(self, skill):
+        returned_mon_id = []
 
-        for i in dicts.keys():
-            a [dicts[i]] =  i
-        
-        return a
+        for mon in self.data['monsters']:
+            mon = self.data['monsters'][mon]
+
+            if 'SkillType' not in mon:
+                logging.warning("skill type not in mon {}".format(mon['$ID']))
+                continue
+
+            if mon['SkillType'].lower() == skill.lower():
+                returned_mon_id.append(mon['$ID'])
+
+        if returned_mon_id == []:
+            skill = 'mon_'+skill
+
+        for mon in self.data['monsters']:
+            mon = self.data['monsters'][mon]
+
+            if 'SkillType' not in mon:
+                logging.warning("skill type not in mon {}".format(mon['$ID']))
+                continue
+
+            if mon['SkillType'].lower() == skill.lower():
+                returned_mon_id.append(mon['$ID'])    
+
+        return returned_mon_id
     
-    #####################
-    # Utility Functions #
-    #####################
-    
-    def directory_dictionary(self, base_dir):
-        items = os.listdir(base_dir)
-
-        for i in items:
-            path = os.path.join(base_dir, i)
-
-            if os.path.isdir(path):
-                self.directory_dictionary(path)
-            else:
-                il        = i.lower()
-                time      = os.path.getmtime(path)
-                mini_dict = {'time': time, 'name' : i, 'path': path}
-
-                if il in self.file_dict and time > self.file_dict[il]['time']:
-                    self.file_dict[il] = mini_dict
-                else:
-                    self.file_dict[il] = mini_dict
+    def get_npc(self, name):
+        if name in self.data['monsters_by_name']:
+            return self.data['monsters_by_name'][name], 'mon'
+        elif name in self.data['npcs_by_name']:
+            return self.data['npcs_by_name'][name], 'npc'
+        else:
+            return None
         
-    def import_json(self,  file):
+    def import_json(file):
         if not exists(file):
             logging.warn("Not Exit: {}".format(file))
             return {}
@@ -229,6 +230,14 @@ class TOSParseCache():
         with open(file_input, "w") as f:
             json.dump(item, f)
     
+    def reverse_dictionary(self, dicts):
+        a = {}
+
+        for i in dicts.keys():
+            a [dicts[i]] =  i
+        
+        return a
+    
     def translate(self, key):
         if self.TRANSLATION_PATH == None:
             return self.data['dictionary'][key]
@@ -250,38 +259,6 @@ class TOSParseCache():
             return ''
         
         return self.data['dictionary'][key]
-    
-    def getNPCbyName(self, name):
-        if name in self.data['monsters_by_name']:
-            return self.data['monsters_by_name'][name], 'mon'
-        elif name in self.data['npcs_by_name']:
-            return self.data['npcs_by_name'][name], 'npc'
-        else:
-            return None
-    def getMonbySkill(self, skill):
-        returned_mon_id = []
-        for mon in self.data['monsters']:
-            
-            mon = self.data['monsters'][mon]
-            if 'SkillType' not in mon:
-                logging.warning("skill type not in mon {}".format(mon['$ID']))
-                continue
-            if mon['SkillType'].lower() == skill.lower():
-                returned_mon_id.append(mon['$ID'])
-        if returned_mon_id == []:
-            skill = 'mon_'+skill
-        for mon in self.data['monsters']:
-            mon = self.data['monsters'][mon]
-            if 'SkillType' not in mon:
-                logging.warning("skill type not in mon {}".format(mon['$ID']))
-                continue
-            if mon['SkillType'].lower() == skill.lower():
-                returned_mon_id.append(mon['$ID'])    
-        return returned_mon_id
-
-#########
-# Enums #
-#########
 
 class TOSElement():
     FIRE      = 'Fire'

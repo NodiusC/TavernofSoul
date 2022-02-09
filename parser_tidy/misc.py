@@ -10,7 +10,6 @@ import csv
 import logging
 import os
 import io
-from os.path import exists
 from cache import TOSParseCache as Cache
 
 def parse_achievements(c = None):
@@ -23,7 +22,7 @@ def achievements(c):
     logging.warning('Parsing Achievemets...')
     
     try:
-        ies_path = c.file_dict['achieve.ies']['path']
+        ies_path = os.path.join(c.PATH_INPUT_DATA, 'ies.ipf', 'achieve.ies')
     except:
         logging.warning("achieve.ies not found")
     rows = []

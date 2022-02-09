@@ -7,16 +7,15 @@ Created on Thu Sep 23 08:07:28 2021
 
 import csv
 import logging
-import os
 import io
+from os.path import exists, join
 
 
 def load(ies_name,c):
     ies_data = []
-    #ies_path = os.path.join(constants.PATH_INPUT_DATA, "ies.ipf", ies_name)
-    ies_path = c.file_dict[ies_name.lower()]['path']
+    ies_path = join(c.PATH_INPUT_DATA, "ies.ipf", ies_name)
 
-    if not os.path.exists(ies_path):
+    if not exists(ies_path):
         logging.warn('Missing ies file: %s', ies_path)
         return []
 

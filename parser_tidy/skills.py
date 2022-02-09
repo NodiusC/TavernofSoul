@@ -15,7 +15,7 @@ import re
 
 from cache import TOSParseCache as Cache
 from cache import TOSElement, TOSAttackType
-from os.path import exists
+from os.path import exists, join
 
 EFFECT_DEPRECATE = { 'SkillAtkAdd': 'SkillFactor' }
 
@@ -61,8 +61,7 @@ def parse_skills(is_rebuild, constants):
     LUA_RUNTIME = luautil.LUA_RUNTIME
     LUA_SOURCE = luautil.LUA_SOURCE
 
-    ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies.ipf', 'skill.ies')
-    ies_path = constants.file_dict['skill.ies']['path']
+    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'skill.ies')
     if(not exists(ies_path)):
        return
     rows = []
@@ -189,8 +188,7 @@ def parse_skills(is_rebuild, constants):
 
 def parse_skills_overheats( constants):
     logging.debug('Parsing skills overheats...')
-    ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies.ipf', 'cooldown.ies')
-    ies_path = constants.file_dict['cooldown.ies']['path']
+    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'cooldown.ies')
     if(not exists(ies_path)):
        return
     with io.open(ies_path, 'r', encoding = 'utf-8') as ies_file:
@@ -235,8 +233,7 @@ def parse_skills_stances(constants):
     logging.debug('Parsing skills stances...')
 
     stance_list = []
-    ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies.ipf', 'stance.ies')
-    ies_path = constants.file_dict[ 'stance.ies']['path']
+    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'stance.ies')
     if(not exists(ies_path)):
        return
     # Parse stances
@@ -345,8 +342,7 @@ def parse_links(c = None):
 def parse_links_gems(constants):
     logging.debug('Parsing gems for skills...')
     
-    ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies.ipf', 'item_gem.ies')
-    ies_path = constants.file_dict[ 'item_gem.ies']['path']
+    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'item_gem.ies')
     with io.open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
             skill = row['ClassName'][len('Gem_'):]
@@ -360,8 +356,7 @@ def parse_links_gems(constants):
 
 def parse_links_jobs(constants):
     logging.debug('Parsing jobs for skills...')
-    ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies.ipf', 'skilltree.ies')
-    ies_path = constants.file_dict[ 'skilltree.ies']['path']
+    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'skilltree.ies')
 
     z = []
     with io.open(ies_path, 'r', encoding = 'utf-8') as ies_file:

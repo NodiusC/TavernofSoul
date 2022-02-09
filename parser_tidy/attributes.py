@@ -9,7 +9,7 @@ import csv
 import logging
 import os
 import io
-from os.path import exists
+from os.path import exists, join
 from cache import TOSParseCache as Cache
 import luautil
 
@@ -25,8 +25,7 @@ def parse(c = None):
 def parse_attributes( constants):
     logging.debug('Parsing attributes...')
     
-    ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies_ability.ipf', 'ability.ies')
-    #ies_path = constants.file_dict['ies_ability.ipf']['path']
+    ies_path = join(constants.PATH_INPUT_DATA, 'ies_ability.ipf', 'ability.ies')
     if (not exists(ies_path)):
             return 
     with io.open(ies_path, 'r', encoding="utf-8") as ies_file:
@@ -83,14 +82,13 @@ def parse_links_jobs(constants):
     LUA_SOURCE = luautil.LUA_SOURCE
 
     # Parse level, unlock and formula
-    #ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies.ipf', 'job.ies')
-    ies_path = constants.file_dict['job.ies']['path']
+    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'job.ies')
     if (not exists(ies_path)):
             return 
     with io.open(ies_path, 'r', encoding="utf-8") as ies_file:
         for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
             job = constants.data['jobs_by_name'][row['ClassName']]
-            mongen_dir = os.listdir(os.path.join(constants.PATH_INPUT_DATA, 'ies_ability.ipf'))
+            mongen_dir = os.listdir(join(constants.PATH_INPUT_DATA, 'ies_ability.ipf'))
             path_insensitive= {}
             for item in mongen_dir:
                 path_insensitive[item.lower()] = item
@@ -101,7 +99,7 @@ def parse_links_jobs(constants):
             except:
                 logging.warning("class not found {}".format(ies_file))
                 
-            ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies_ability.ipf', ies_file)
+            ies_path = join(constants.PATH_INPUT_DATA, 'ies_ability.ipf', ies_file)
 
             # If this job is still under development, skip
             if not os.path.isfile(ies_path):

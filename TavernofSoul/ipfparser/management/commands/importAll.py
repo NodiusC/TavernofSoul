@@ -5,50 +5,31 @@ Created on Tue Sep 28 14:08:20 2021
 @author: Temperantia
 """
 
-from itertools import islice
-from django.core.management.base import BaseCommand
-from django.core.exceptions import ObjectDoesNotExist
-from django.conf import settings
-import logging
 import json
-from os.path import join, exists
-from Monsters.models import Monsters, Item_Monster, Skill_Monster,Buff_Skill_Monster
+import logging
 import os
+import re
 import shutil
+
+from Attributes.models import Attributes
+from Buffs.models import Buffs
+from Dashboard.models import Version
+from django.conf import settings
+from django.core.management.base import BaseCommand
 from Items.models import Items, Equipments, Equipment_Bonus, Cards, Recipes, Books, Equipment_Set
 from Items.models import Item_Recipe_Material
 from Items.models import Collections, Item_Collection_Material, Item_Collection_Bonus
 from Items.models import Goddess_Reinforce_Mat, Goddess_Reinforce_Chance
 from Items.models import Eq_Reinf, Eq_TC
-
-from Maps.models import Maps, Map_Item, Map_NPC,Map_Item_Spawn
+from itertools import islice
 from Jobs.models import Jobs
-from Buffs.models import Buffs
-from Skills.models import Skills,Buff_Skill
-from Attributes.models import Attributes
-from Dashboard.models import Version
+from Maps.models import Maps, Map_Item, Map_NPC,Map_Item_Spawn
+from Monsters.models import Monsters, Item_Monster, Skill_Monster,Buff_Skill_Monster
+from os.path import join, exists
 from Other.models import Achievements
-
-
-def bulk_op(operation, objs, batch_size, fields = False):
-    count = 0
-    leng = len(objs)
-    batch_size = int(batch_size)
-    
-    while True:
-        logging.warning("---- bulk %s %s / %s | %s" %('update' if fields else 'insert',  batch_size * count, leng, count))
-
-        batch = list(islice(objs,count* batch_size, (count+1) * batch_size))
-        if not batch:
-            break
-        if fields:
-            operation(batch, fields, batch_size)    
-        else:
-            operation(batch, batch_size)
-        count+=1
+from Skills.models import Skills,Buff_Skill
 
 class Command(BaseCommand):
-    
     base_path               = settings.JSON_ROOT
     maps_path               = 'maps.json'
     maps_by_name_path       = 'maps_by_name.json'
@@ -62,58 +43,50 @@ class Command(BaseCommand):
     attributes_path         = "attributes.json"
     skills_path             = "skills.json"
     skills_by_name_path     = "skills_by_name.json"
+    item_path               = 'items.json'
+    cube_contents_path      = 'cube_contents.json'
     monster_path            = 'monsters.json'
     item_monster_path       = 'item_monster.json'
     npc_path                = 'npcs.json'
-    item_path               = 'items.json'
-    item_type_path          = 'item_type.json'
     version_path            = 'version.json'
     buff_path               = 'buff.json'
     achieve_path            = 'achievements.json'
     all_dic                 = {}
-    
-    
-    
-    def importJSON(self, file):
-        if not exists(file):
-            return {}
-        try:
-            with open(file, "r") as f:
-                data = json.load(f)
-        except:
-            logging.error("error in importing file {}".format(file))
-            return {}
-        return data
-
 
     def add_arguments(self, parser):
         parser.add_argument('-u', '--update', type=int, help='Indicate wether ignore any \
                             existing data or update them')
+
+    def bulk_op(operation, objs, batch_size, fields = False):
+        count      = 0
+        leng       = len(objs)
+        batch_size = int(batch_size)
         
-    
-    def escaper(self,string):
-        string = str(string)
-        escaped = string.translate(str.maketrans({"-":  r"\-",
-                                              "]":  r"\]",
-                                              "\\": r"\\",
-                                              "^":  r"\^",
-                                              "$":  r"\$",
-                                              "*":  r"\*",
-                                              ".":  r"\.",
-                                              "'" : r"\'",
-                                              '"' : r'\"',
-                                              ',' :r''
-                                              
-                                              }))
-        return escaped
+        while True:
+            logging.info("--- Bulk %s %s / %s | %s" % ('Update' if fields else 'Insert',  batch_size * count, leng, count))
+
+            batch = list(islice(objs, count * batch_size, (count + 1) * batch_size))
+
+            if not batch:
+                break
+
+            if fields:
+                operation(batch, fields, batch_size)    
+            else:
+                operation(batch, batch_size)
+            
+            count += 1
+
     def comparer(self,path, ids = ['$ID']):
         base_path = self.base_path
         json_prev = False
         json_now = False
         changes = {'added' : [] ,'removed' : [], 'changed': []}
+
         if (exists(join(base_path, 'prev', path))):
             with open(join(base_path, 'prev', path)) as f:
                 json_prev = json.load(f)
+
         if (exists(join(base_path, path))):
             with open(join(base_path, path)) as f:
                 json_now = json.load(f)
@@ -132,17 +105,16 @@ class Command(BaseCommand):
         elif json_now == json_prev == False:
             logging.warning("file not found {}".format(path))
             return changes
+        
         if (json_now == json_prev):
             logging.warning("no change at {}".format(path))
             
             return changes
         
-        
         if type(json_now) == type({}):
             json_now= list(json_now.values())
             json_prev= list(json_prev.values())
 
-        
         dict_now = {}
         for i in json_now:
             if (len(ids)) == 1:
@@ -189,87 +161,85 @@ class Command(BaseCommand):
                 for atom in dict_prev[item]:
                     if item in dict_now and atom not in dict_now[item]:
                         changes['removed'].append(dict_prev[item][atom])
-                    
-
-                
+        
         logging.warning("Change at {} : {} added, {} deleted, {} modified row".format(
             path, len(changes['added']), len(changes['removed']), len(changes['changed'])))
-        return changes
         
-
-
+        return changes
+    
     def handle(self,  *args, **kwargs):
-        logging.basicConfig(level=logging.WARNING)
         update = kwargs['update']
+
         if update == None:
             update = 1
 
-        ver_json = self.importJSON(join(self.base_path, self.version_path))
+        ver_json = self.import_json(join(self.base_path, self.version_path))
+
         try:
             ver = Version.object.latest('created')
         except:
             ver = Version()
             ver.Version = '000000.ipf'
             ver.save()
+        
         if ver.Version != ver_json['version']:
             ver.version = ver_json['version']
             ver.save()
-        
-        item_type       = self.importJSON(join(self.base_path,self.item_type_path))
 
-        buff = self.comparer(self.buff_path)
+        buff           = self.comparer(self.buff_path)
         self.importBuff(buff)
 
         jobs           = self.comparer(self.jobs_path)
         self.importJobs(jobs)
     
-        
         skills         = self.comparer(self.skills_path)
         self.importSkillsWithComparer(skills)
         
         attrib         = self.comparer(self.attributes_path)
         self.importAttrib(attrib)
 
-        skills      = { i.name.lower() : i.job for i in Skills.objects.all() }
-        all_dic_k = sorted(skills, key=lambda k: len(k))
+        skills         = { i.name.lower() : i.job for i in Skills.objects.all() }
+
+        all_dic_k      = sorted(skills, key = lambda k: len(k))
         all_dic_sorted = {}
+
         for i in all_dic_k:
             all_dic_sorted[i] = skills[i]
-        skills = all_dic_sorted
-
-
-        classes     = { i.name.lower() : i for i in Jobs.objects.all()}
-        skills.update(classes)
-        self.all_dic = skills
-
-        items           = self.comparer(self.item_path)
-        self.importItem(items,item_type)
         
-        npc             = self.comparer(self.npc_path)
-        monster         = self.comparer(self.monster_path)
+        skills         = all_dic_sorted
+
+        classes        = { i.name.lower() : i for i in Jobs.objects.all()}
+
+        skills.update(classes)
+
+        self.all_dic   = skills
+
+        items          = self.comparer(self.item_path)
+        self.import_item(items)
+        
+        npc            = self.comparer(self.npc_path)
+        monster        = self.comparer(self.monster_path)
         self.importMonster(monster, npc)
         
-        item_monster    = self.comparer(self.item_monster_path, ['Item','Monster'])
+        item_monster   = self.comparer(self.item_monster_path, ['Item','Monster'])
         self.importItemMonster(item_monster)
         
-        map = self.comparer(self.maps_path)
+        map            = self.comparer(self.maps_path)
         self.importMap(map)
         
-        map = self.comparer(self.map_item_path, ['Map', 'Item'])
+        map            = self.comparer(self.map_item_path, ['Map', 'Item'])
         self.importMapItem(map)
         
-        map = self.comparer(self.map_npc_path, ['Map', 'NPC'])
+        map            = self.comparer(self.map_npc_path, ['Map', 'NPC'])
         self.importMapNPC(map)
         
-        map = self.comparer(self.map_item_spawn_path, ['Map', 'Item'] )
+        map            = self.comparer(self.map_item_spawn_path, ['Map', 'Item'] )
         self.importMapItemSpawn(map)
         
-        skillmon = self.comparer('skill_mon.json')
+        skillmon       = self.comparer('skill_mon.json')
         self.importSkillMon(skillmon)
         
-
-
-        achieve = self.comparer(self.achieve_path)
+        achieve        = self.comparer(self.achieve_path)
         self.importAchieve(achieve)
         self.importGoddess()
         self.importEQSet()
@@ -280,27 +250,40 @@ class Command(BaseCommand):
             if files.endswith(".json"):
                 shutil.copy(join(self.base_path,files),join(destination,files))
 
-        
     items = {}
-    def importItem(self,items, item_type ):
+    
+    def import_item(self, items):
         for i in items['removed']:
             try:
-                Items.objects.get(ids= i['$ID']).delete()
+                Items.objects.get(ids = i['$ID']).delete()
             except:
-                logging.warning("failed to delete item {} ({})".format(i['Name'], i['$ID']))
-        logging.debug("migrating items")
-        dolater = {'RECIPES': [],'COLLECTION': [], 'EQUIPMENT' : [], 'CARD' : [], 'BOOKS' :[] }
+                logging.warning("Failed to delete item {} ({})".format(i['Name'], i['$ID']))
+        
+        logging.debug("--- Migrating Items ---")
+
+        post_op = {
+            'EQUIPMENT' : [],
+            'GEM'       : [],
+            'CARD'      : [],
+            'RECIPES'   : [],
+            'COLLECTION': [],
+            'BOOK'      : []
+        }
+
         bulk_insert = {}
-        bulk_upd    = {}
+        bulk_update = {}
+
         items_all   = {i.ids : i for i in Items.objects.all()}
 
         for i in items['added'] + items['changed']:
-            upd = False
+            update = False
+
             if i['$ID'] in items_all:
                 handler = items_all[i['$ID']]
-                upd = True
+                update = True
             else:
                 handler = Items()
+
             handler.ids             = i['$ID']
             handler.id_name         = i['$ID_NAME']
             handler.cooldown        = i['TimeCoolDown']
@@ -311,93 +294,122 @@ class Command(BaseCommand):
             handler.type            = i['Type']
             handler.grade           = i['Grade']
             handler.icon            = i['Icon']
-            # handler.save()
-            if i['$ID_NAME'] in item_type['EQUIPMENT']:
-                dolater['EQUIPMENT'].append([handler,i.copy(), upd])
-                #self.makeEQ(handler,i,  upd)
-            elif i['$ID_NAME'] in item_type['CARD']:
-                dolater['CARD'].append([handler,i.copy(), upd])
-                #self.makeCard(handler,i,  upd)
-            elif i['$ID_NAME'] in item_type['RECIPES']:
-                dolater['RECIPES'].append([handler,i.copy(), upd])
-            elif i['$ID_NAME'] in item_type['COLLECTION']:
-                dolater['COLLECTION'].append([handler,i.copy(),  upd])
-            elif i['$ID_NAME'] in item_type['BOOKS']:
-                dolater['BOOKS'].append([handler,i.copy(), upd])
-                 #self.makeBook(handler,i,  upd)
-            if upd:
-                bulk_upd[handler.ids] = handler
+
+            if i['Type'] in post_op:
+                post_op[i['Type']].append([handler, i.copy(), update])
+            
+            if update:
+                bulk_update[handler.ids] = handler
             else:
                 bulk_insert[handler.ids] = handler
         
-        bulk_op(Items.objects.bulk_create, bulk_insert.values(), 1000)
-        bulk_op(Items.objects.bulk_update, bulk_upd.values(), 1000, Items.fields)
+        self.bulk_op(Items.objects.bulk_create, list(bulk_insert.values()), 1000)
+        self.bulk_op(Items.objects.bulk_update, list(bulk_update.values()), 1000, Items.fields)
+
         self.items = {i.ids : i for i in Items.objects.all()}
+
         del(bulk_insert)
-        del(bulk_upd)
+        del(bulk_update)
+
+        logging.debug("--- Parsing Equipment ---" )
+        
+        anvil_handler_insert = []
+        anvil_handler_update = []
+        trans_handler_insert = []
+        trans_handler_update = []
+        bonus_handler        = []
+
+        for i in post_op['EQUIPMENT']:
+            bulk = self.create_equipment(i[0], i[1], i[2])
+
+            anvil_handler_insert += bulk[0]
+            anvil_handler_update += bulk[1]
+            trans_handler_insert += bulk[2]
+            trans_handler_update += bulk[3]
+            bonus_handler        += bulk[4]
+        
+        logging.debug('--- Importing Anvil Data ---')
+
+        self.bulk_op(Eq_Reinf.objects.bulk_create, anvil_handler_insert, 1000)
+        self.bulk_op(Eq_Reinf.objects.bulk_update, anvil_handler_update, 1000, ['price', 'addatk'])
+
+        logging.debug('--- Importing Transcendence Data ---')
+
+        self.bulk_op(Eq_TC.objects.bulk_update, trans_handler_update, 1000, ['price', 'tc'])
+        self.bulk_op(Eq_TC.objects.bulk_create, trans_handler_insert, 1000)
+
+        logging.debug('--- Importing Stat Bonus Data ---')
+
+        self.bulk_op(Equipment_Bonus.objects.bulk_create, bonus_handler, 1000)
+
+        logging.debug('--- Parsing Gems ---')
+
+        for i in post_op['GEM']:
+            self.create_gem(i[0], i[1], i[2])
+
+        logging.debug('--- Parsing Cards ---' )
+
+        for i in post_op['CARD']:
+            self.create_card(i[0], i[1], i[2])
                 
-        logging.warning("-- parsing recipes" )
-        mat_bulk = []
-        for i in dolater['RECIPES']:
-            self.makeRecipe(i[0], i[1],   i[2])
-        # bulk_op(Item_Recipe_Material, mat_bulk,1000)
+        logging.debug('--- Parsing Recipes ---')
+
+        for i in post_op['RECIPE']:
+            self.makeRecipe(i[0], i[1], i[2])
         
+        logging.warning('--- Parsing Collections ---')
+
+        for i in post_op['COLLECTION']:
+            self.makeCollection(i[0], i[1], i[2])
+
+        logging.warning('--- Parsing Books ---')
+
+        for i in post_op['BOOK']:
+            self.makeBook(i[0], i[1], i[2])
         
-        logging.warning("-- parsing collection" )
-        for i in dolater['COLLECTION']:
-            self.makeCollection(i[0], i[1],  i[2])
+    def import_json(file):
+        if not exists(file):
+            logging.warn("Not Exit: {}".format(file))
+            return {}
 
-
-        logging.warning("-- parsing equipment" )
-        bulks = []
-        anvil_handler_ins   = []
-        anvil_handler_upd   = []
-        tc_handler_ins      = []
-        tc_handler_upd      = []
-        bonus_handler       = []
-        for i in dolater['EQUIPMENT']:
-            bulks.append(self.makeEQ(i[0], i[1],  i[2]))
-        for i in bulks:
-            anvil_handler_ins   += i[0]
-            anvil_handler_upd   += i[1]
-            tc_handler_ins      += i[2]
-            tc_handler_upd      += i[3]
-            bonus_handler       += i[4]
-
-        logging.warning("-- importing anvils" )
-        bulk_op(Eq_Reinf.objects.bulk_create, anvil_handler_ins, 1000)
-        bulk_op(Eq_Reinf.objects.bulk_update, anvil_handler_upd, 1000,  ['price', 'addatk'])
-        logging.warning("-- importing transcends" )
-        bulk_op(Eq_TC.objects.bulk_update, tc_handler_upd, 1000,  ['price', 'tc'])
-        bulk_op(Eq_TC.objects.bulk_create, tc_handler_ins, 1000,  )
-        logging.warning("-- importing bonus" )
-        bulk_op(Equipment_Bonus.objects.bulk_create, bonus_handler, 1000)
-
-        logging.warning("-- parsing cards" )
-        for i in dolater['CARD']:
-            self.makeCard(i[0], i[1],  i[2])
-
-        logging.warning("-- parsing books" )
-        for i in dolater['BOOKS']:
-            self.makeBook(i[0], i[1],  i[2])
-                
+        try:
+            with open(file, "r") as f:
+                data = json.load(f)
+        except:
+            logging.error("error in importing file {}".format(file))
+            return {}
         
-           
-        
-    def makeEQ(self, item, i,  upd = False):
+        return data
+
+    def create_card(self, item, i,  update = False):
         item = self.items[item.ids]
+        try:
+            handler = Cards.objects.get(item = item)
+        except:
+            handler = Cards()
+            handler.item = item
+        
+        handler.icon = i['IconTooltip']
+        
+        handler.type_card = i['TypeCard']
+        handler.save()
+
+    def create_equipment(self, item, i, update = False):
+        item = self.items[item.ids]
+
         try:
             handler = Equipments.objects.get(item = item)
         except:
             handler = Equipments()
             handler.item = item
+        
         handler.durability      = i['Durability']
         handler.level           = i['Level']
         handler.potential       = i['Potential']
         handler.requiredClass   = i['RequiredClass']
         handler.sockets_limit   = i['SocketsLimit']
         handler.stars           = i['Stars']
-        handler.matk            = i['Stat_ATTACK_MAGICAL']            
+        handler.matk            = i['Stat_ATTACK_MAGICAL']
         handler.patk            = i['Stat_ATTACK_PHYSICAL_MIN']
         handler.patk_max        = i['Stat_ATTACK_PHYSICAL_MAX']
         handler.mdef            = i['Stat_DEFENSE_MAGICAL']
@@ -475,42 +487,14 @@ class Command(BaseCommand):
         bonus_handler = []
         all_dic = self.all_dic
 
-        if (i['Bonus']):
+        if i['Bonus']:
             for b in i['Bonus']:
                 bonus = Equipment_Bonus(equipment = handler)
                 bonus.bonus_stat = b[0]
                 bonus.bonus_val  = b[1]
                 bonus_handler.append(bonus)
 
-
-            if settings.REGION == 'jtos':
-                vv_name = 'バイボラ秘伝'
-            else:
-                vv_name = "vaivora vision"
-
-            #if vv_name in i['Name'].lower() and 'lv4' in  i['Name'].lower() and settings.REGION != 'jtos':
-            #    for bonus in i['Bonus']:                
-            #        if 'job' not in i:
-            #            continue
-            #        job = Jobs.objects.get(ids = i['job'])
-            #        job.vaivora = handler
-            #        job.save() 
-
-
         return [anvil_handler_ins, anvil_handler_upd, tc_handler_ins, tc_handler_upd, bonus_handler]
-
-
-    def makeCard(self, item, i,  upd = False):
-        item = self.items[item.ids]
-        try:
-            handler = Cards.objects.get(item = item)
-        except:
-            handler = Cards()
-            handler.item = item
-        handler.icon = i['IconTooltip']
-        
-        handler.type_card = i['TypeCard']
-        handler.save()
     
     def makeRecipe(self, item, i,  upd = False):
         item = self.items[item.ids]
@@ -677,8 +661,8 @@ class Command(BaseCommand):
             else:
                 bulk_ins.append(handler)
         
-        bulk_op(Monsters.objects.bulk_create, bulk_ins,100)
-        bulk_op(Monsters.objects.bulk_update, bulk_upd,100, Monsters.fields)
+        self.bulk_op(Monsters.objects.bulk_create, bulk_ins,100)
+        self.bulk_op(Monsters.objects.bulk_update, bulk_upd,100, Monsters.fields)
         
         
            
@@ -710,8 +694,8 @@ class Command(BaseCommand):
             else:
                 bulk_ins.append(handler)
 
-        bulk_op(Item_Monster.objects.bulk_create, bulk_ins,1000)
-        bulk_op(Item_Monster.objects.bulk_update, bulk_upd,1000, ['monster','item','chance','qty_min','qty_max'])
+        self.bulk_op(Item_Monster.objects.bulk_create, bulk_ins,1000)
+        self.bulk_op(Item_Monster.objects.bulk_update, bulk_upd,1000, ['monster','item','chance','qty_min','qty_max'])
         
     def importMap (self,map ):
         for i in map['removed']:
@@ -982,10 +966,7 @@ class Command(BaseCommand):
 
                 # quit()
                 handler_buff.save()
-                
-            
-        
-        
+    
     def importAttrib (self,attrib ):
         for i in attrib['removed']:
             try:
@@ -1038,11 +1019,7 @@ class Command(BaseCommand):
                 if job.ids not in added_jobs:
                     handler.job.remove(job)
             handler.save()
-            
-        
-        
-            
-            
+    
     def importSkillMon(self, skillmon):
         for i in skillmon['removed']:
             try:
@@ -1074,8 +1051,8 @@ class Command(BaseCommand):
                 bulk_upd.append(handler)
             else:
                 bulk_ins.append(handler)
-        bulk_op(Skill_Monster.objects.bulk_create, bulk_ins, 1000)
-        bulk_op(Skill_Monster.objects.bulk_update, bulk_upd, 1000, ['ids', 'id_name', 'name', 'sfr', 'element', 'cooldown', 'aar'])
+        self.bulk_op(Skill_Monster.objects.bulk_create, bulk_ins, 1000)
+        self.bulk_op(Skill_Monster.objects.bulk_update, bulk_upd, 1000, ['ids', 'id_name', 'name', 'sfr', 'element', 'cooldown', 'aar'])
         mon          = {i['ids'] : i['id'] for i in Monsters.objects.values('id', 'ids')}
         skillmon_obj = {i.ids : i for i in Skill_Monster.objects.all()}
 
@@ -1136,8 +1113,8 @@ class Command(BaseCommand):
             handler.keyword         = i['Keyword']
             bulk[key].append(handler)
             # handler.save()
-        bulk_op(Buffs.objects.bulk_create,bulk['create'],1000)
-        bulk_op(Buffs.objects.bulk_update,bulk['upd'],1000, Buffs.fields)
+        self.bulk_op(Buffs.objects.bulk_create,bulk['create'],1000)
+        self.bulk_op(Buffs.objects.bulk_update,bulk['upd'],1000, Buffs.fields)
 
             
     def importAchieve(self, achieve):
@@ -1169,7 +1146,7 @@ class Command(BaseCommand):
         mat_path        = 'goddess_reinf_mat.json'
         reinf_path      = 'goddess_reinf.json' 
         item_dic        = {}
-        mats            = self.importJSON(join(self.base_path, mat_path))
+        mats            = self.import_json(join(self.base_path, mat_path))
         #with open(reinf_path,'r')as f:
         #    mats = json.load(f)
         for lv in mats:
@@ -1187,7 +1164,7 @@ class Command(BaseCommand):
                         handler.mat_count = mats[lv][eq][anv][mat]
                         handler.save() 
                     
-        reinf       = self.importJSON(join(self.base_path,reinf_path))
+        reinf       = self.import_json(join(self.base_path,reinf_path))
         for lv in reinf:
             for anvil in reinf[lv]:
                 cur = reinf[lv][int(anvil['ClassID'])-1]
@@ -1228,6 +1205,6 @@ class Command(BaseCommand):
             handler.name   = i['Name']
             handler.id_name = i['$ID_NAME']
             handler.save()
-            for i in i['Link_Items']:
+            for i in i['Set_Items']:
                 eq_handler = Equipments.objects.get(item__id_name = i)
                 handler.equipment.add(eq_handler)

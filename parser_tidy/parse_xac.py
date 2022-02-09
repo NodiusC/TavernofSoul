@@ -20,7 +20,7 @@ def parse_xac(c = None):
     
     xac = {}
 
-    ies_path = c.file_dict['xac.ies']['path']
+    ies_path = join(c.PATH_INPUT_DATA, 'ies_client.ipf', 'xac.ies')
 
     with open(ies_path, 'r', encoding="utf-8") as ies_file:
         for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
@@ -104,21 +104,18 @@ def xac2dae(c, filename):
         pass
 
     if (exists(join(dst,filename+'.dae'))):
-        return  
-    if filenamexac not in c.file_dict :
         return
     
-    path        = c.file_dict[filenamexac]['path']
+    path        = join(c.PATH_INPUT_DATA, 'some_folder', filenamexac)
     outputfile  = path+'.dae'
     subprocess.call(['java', '-jar', converter, path],  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    if filename + '.dds' in c.file_dict:
-        dds         = c.file_dict[ filename + '.dds']['path']
-        if '.ipf' in split(split(dds)[0])[-1]:
-            subprocess.call(['cp', dds,dst])
-        else:
-            dds = split(dds)[0]
-            subprocess.call(['cp', '-r', dds,dst], )
+    dds         = join(c.PATH_INPUT_DATA, 'some_folder', filename + '.dds')
+    if '.ipf' in split(split(dds)[0])[-1]:
+        subprocess.call(['cp', dds,dst])
+    else:
+        dds = split(dds)[0]
+        subprocess.call(['cp', '-r', dds,dst], )
 
     try:
         move(outputfile, join(dst, filename+'.dae') )

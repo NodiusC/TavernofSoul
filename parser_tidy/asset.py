@@ -12,7 +12,7 @@ import shutil
 import xml.etree.ElementTree as ET
 
 from cache import TOSParseCache as Cache
-from os.path import exists
+from os.path import exists, join
 
 IMAGE_SIZE = {  # Top, Left, Width, Height
     'bosscard2'        : (330, 440),
@@ -69,10 +69,7 @@ def parse(c = None):
 def parse_icons(file_name, c):
     logging.debug('Parsing File: {}'.format(file_name))
 
-    try:
-        data_path = c.file_dict[file_name.lower()]['path']
-    except:
-        data_path = os.path.join(c.PATH_INPUT_DATA, 'ui.ipf', 'baseskinset', file_name)
+    data_path = join(c.PATH_INPUT_DATA, 'ui.ipf', 'baseskinset', file_name)
     
     if not exists(data_path):
         logging.warn("{} does not exist".format(data_path))
@@ -94,14 +91,9 @@ def parse_icons_step(file_name, work, c):
     if file_name == 'baseskinset.xml' and image_category not in WHITELIST_BASESKINSET:
         return
     
-    file_name       = c.file_dict[file_name.lower()]['name']
+    file_name       = join(c.PATH_INPUT_DATA, 'ui.ipf', 'baseskinset', file_name.lower())
     image_extension = '.jpg' if image_category in WHITELIST_RGB else '.png'
     image_file      = image.get('file').split('\\')[-1]
-
-    try:
-        image_file = c.file_dict[image_file.lower()]['name']
-    except:
-        pass
 
     image_name = image.get('name')
     image_rect = tuple(int(x) for x in image.get('imgrect').split()) if len(image.get('imgrect')) else None  # Top, Left, Width, Height

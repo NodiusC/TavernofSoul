@@ -13,6 +13,7 @@ import logging
 from lupa import LuaRuntime, LuaError
 
 import iesutil
+from os.path import join
 
 
 # HotFix: don't throw errors when LUA is getting an unknown key
@@ -146,9 +147,8 @@ def init(c):
 
 
 def init_global_constants(ies_file_name,c):
-    ies_path = c.file_dict[ies_file_name.lower()]['path']
     execute = ''
-    #ies_path = os.path.join(c.PATH_INPUT_DATA_LUA, 'ies.ipf', ies_file_name)
+    ies_path = join(c.PATH_INPUT_DATA_LUA, 'ies.ipf', ies_file_name)
 
     with io.open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
@@ -192,7 +192,7 @@ def init_global_data(c):
     ies_ADD('ancient_info', iesutil.load('Ancient_Info.ies',c))
     for i in c.EQUIPMENT_IES:
         try:
-            ies_path = c.file_dict[i.lower()]['path']
+            ies_path = join(c.PATH_INPUT_DATA, 'ies.ipf', i.lower())
         except:
             continue
         ies_ADD('item', iesutil.load(i,c))
@@ -382,7 +382,7 @@ def init_runtime(c):
             if file_name.upper().endswith('.LUA'):
         
         
-                file_path = os.path.join(root, file_name)
+                file_path = join(root, file_name)
                 lua_function = []
 
                 with open(file_path, 'r',errors='ignore', encoding = 'utf-8') as file:

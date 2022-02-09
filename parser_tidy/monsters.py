@@ -9,7 +9,7 @@ import csv
 import logging
 import os
 import glob
-from os.path import exists
+from os.path import exists, join
 from cache import TOSParseCache as Cache
 import luautil
 
@@ -80,8 +80,7 @@ def parse_monsters(file_name, constants):
     LUA_RUNTIME = luautil.LUA_RUNTIME
     LUA_SOURCE = luautil.LUA_SOURCE
 
-    #ies_path = os.path.join(constants.PATH_INPUT_DATA, "ies.ipf", file_name)
-    ies_path = constants.file_dict[file_name.lower()]['path']
+    ies_path = join(constants.PATH_INPUT_DATA, "ies.ipf", file_name)
     if not exists(ies_path):
         log.warning("file not found {}".format(ies_path))
         return 
@@ -171,8 +170,7 @@ def parse_monsters(file_name, constants):
 def parse_monsters_statbase(file_name, destination,constants):
     logging.debug('Parsing %s...', file_name)
 
-    #ies_path = os.path.join(constants.PATH_INPUT_DATA, "ies.ipf", file_name)
-    ies_path = constants.file_dict[file_name.lower()]['path']
+    ies_path = join(constants.PATH_INPUT_DATA, "ies.ipf", file_name)
     ies_file = open(ies_path, 'r', encoding = 'utf-8')
     ies_reader = csv.DictReader(ies_file, delimiter=',', quotechar='"')
 
@@ -236,8 +234,7 @@ def parse_skill_mon(constants):
     xml_skills = constants.data['xml_skills']
     logging.debug('Parsing Monsters <> Skills...')
     ies_file = 'skill_mon.ies'
-    #ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies.ipf', ies_file)
-    ies_path = constants.file_dict[ies_file.lower()]['path']
+    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', ies_file)
     if (not exists(ies_path)):
         log.warning("file not found {}".format(ies_path))
         return False
@@ -267,7 +264,7 @@ def parse_skill_mon(constants):
                 mon_s += i+"_"
             mon_s = mon_s[:-1]
         
-            skill['Monster']    = constants.getMonbySkill(mon_s)
+            skill['Monster']    = constants.get_monster(mon_s)
             
             
             

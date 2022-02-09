@@ -101,11 +101,12 @@ if __name__ == '__main__':
     maps.parse_maps_images(c) #run map_image.py with py2.7 before running this
     maps.parse_links(c)
     misc.parse_achievements(c)
-    #c.export_one("achievements")    
-    
+
     c.export_all()
 
     revision_txt_write('parser_version_{}.txt'.format(region.lower()), version)
+
     v = {'version' : "{}_001001.ipf".format(version)}
+    
     with open(join(c.BASE_PATH_OUTPUT, 'version.json'), "w") as f:
         json.dump(v,f)
