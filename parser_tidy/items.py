@@ -8,10 +8,9 @@ Created on Mon Sep 20 11:18:38 2021
 import csv
 import io
 import logging
-import re
 import luautil
-import os
 import parse_xac
+import re
 import xml.etree.ElementTree as ET
 
 from cache import TOSParseCache as Cache
@@ -37,9 +36,6 @@ def parse(cache: Cache = None, from_scratch: bool = True):
     if (from_scratch):
         cache.data['items'] = {}
 
-        cache.cubes_by_stringarg = {}
-        cache.equipment_sets     = {}
-
         for file in cache.ITEM_IES:
             parse_items(cache, file)
 
@@ -59,14 +55,35 @@ def parse(cache: Cache = None, from_scratch: bool = True):
 
     parse_card_battle(cache)
     
-    parse_gems(cache)
+    for file in cache.GEM_IES:
+        parse_gems(cache, file)
     
     parse_cubes(cache)
     parse_collections(cache)
     
-    parse_links_recipes(cache)
+    parse_recipes(cache)
     
-    parse_books_dialog(cache)
+    parse_books(cache)
+
+def parse_books(cache: Cache):
+    LOG.info('Parsing Books from dialogtext.ies ...')
+
+    ies_path = join(cache.PATH_INPUT_DATA, 'ies_client.ipf', 'dialogtext.ies')
+
+    if not exists(ies_path):
+        LOG.warning('File not found: dialogtext.ies')
+        return
+
+    ies_file   = io.open(ies_path, 'r', encoding = 'utf-8')
+    ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
+
+    for row in ies_reader:
+        if row['ClassName'] not in cache.data['items']:
+            continue
+
+        cache.data['items'][row['ClassName']]['Text'] = cache.translate(row['Text'])
+    
+    ies_file.close()
 
 def parse_card_battle(cache: Cache):
     ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'cardbattle.ies')
@@ -79,11 +96,14 @@ def parse_card_battle(cache: Cache):
     ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
 
     for row in ies_reader:
-        obj = cache.data['items'][row['ClassName']]
+        if row['ClassName'] not in cache.data['items']:
+            continue
 
-        obj['Stat_Height'] = int(row['Height'])
-        obj['Stat_Legs']   = int(row['LegCount'])
-        obj['Stat_Weight'] = int(row['BodyWeight'])
+        card = cache.data['items'][row['ClassName']]
+
+        card['Stat_Height'] = int(row['Height'])
+        card['Stat_Legs']   = int(row['LegCount'])
+        card['Stat_Weight'] = int(row['BodyWeight'])
 
     ies_file.close()
 
@@ -107,18 +127,24 @@ def parse_collections(cache: Cache):
 
         if 'Collectables' not in collection:
             collection['Collectables'] = []
-            collection['Bonus']        = []
         
         for i in range(1, 10):
             item = row['ItemName_' + str(i)]
 
-            if item == '' or item not in cache.data['items']:
+            if item == '':
+                continue
+            
+            if item not in cache.data['items']:
+                LOG.warning('Collectible Item Missing: %s', item)
                 continue
 
-            collection['Collectables'].append(cache.data['items'][item]['$ID_NAME'])
+            collection['Collectables'].append(item)
+        
+        if 'Bonus' not in collection:
+            collection['Bonus'] = {}
 
         for bonus in re.findall('/?(\S+?)/(\S+?)/?', row['PropList'] + '/' + row['AccPropList']):
-            collection['Bonus'].append(COLLECTION_STATS[bonus[0]], int(bonus[1]))
+            collection['Bonus'][COLLECTION_STATS[bonus[0]]] = int(bonus[1])
     
     ies_file.close()
 
@@ -135,7 +161,21 @@ def parse_cubes(cache: Cache):
     ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
 
     for row in ies_reader:
-        cache.data['cube_contents'][row['Group']]['Contents'].append({[row['ItemName']]: row['Ratio']})
+        item = row['ItemName']
+
+        if item == '':
+            continue
+
+        if item not in cache.data['items']:
+            LOG.warning('Cube Item Missing: %s', item)
+            continue
+
+        content = {}
+
+        content['Item']   = item
+        content['Chance'] = row['Ratio']
+
+        cache.data['cube_contents'][row['Group']]['Contents'].append(content)
     
     ies_file.close()
 
@@ -251,7 +291,8 @@ def parse_equipment(cache: Cache, file_name: str):
         # Anvil
         reinf = 'GET_REINFORCE_131014_PRICE' if 'GET_REINFORCE_PRICE' not in LUA_RUNTIME and 'GET_REINFORCE_131014_PRICE' in LUA_RUNTIME else 'GET_REINFORCE_PRICE'
         
-        if (obj['Grade'] != 6) and reinf!= None: #goddess!
+        # Goddess Grade
+        if (obj['Grade'] != 6) and reinf != None:
             if any(prop in row['BasicTooltipProp'] for prop in ['ATK', 'DEF', 'MATK', 'MDEF']):
                 for lv in range(40):
                     row['Reinforce_2'] = lv
@@ -353,16 +394,16 @@ def parse_equipment_sets(cache: Cache):
 
     ies_file.close()
 
-def parse_gems(cache: Cache):
-    LOG.info('Parsing Gems from item_gem.ies ...')
-
-    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'item_gem.ies')
+def parse_gems(cache: Cache, file_name: str):
+    LOG.info('Parsing Gems from %s ...', file_name)
+    
+    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
 
     if not exists(ies_path):
-        LOG.warning('File not found: item_gem.ies')
+        LOG.warning('File not found: %s', file_name)
         return
 
-    ies_file = open(ies_path, 'r', encoding = 'utf-8')
+    ies_file   = open(ies_path, 'r', encoding = 'utf-8')
     ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
 
     xml_path = join(cache.PATH_INPUT_DATA, 'xml.ipf', 'socket_property.xml')
@@ -379,23 +420,16 @@ def parse_gems(cache: Cache):
 
         gem = cache.data['items'][row['ClassName']]
 
-        gem['TypeGem'] = row['EquipXpGroup'].upper() if gem['Type'] == 'GEM' else row['GemType'].upper()
+        gem['TypeGem'] = row['EquipXpGroup'].upper() if gem['Type'] == 'GEM' else gem['Type']
         gem['Type']    = 'GEM'
 
-        item = xml.find('./Item[@Name=\'' + gem['$ID_NAME'] + '\']')
+        if gem['TypeGem'] == 'GEM_RELIC':
+            gem['RelicEffect'] = row['RelicGemOption']
 
-        if item is None:
-            continue
+            # TODO: SFR from LUA ('get_tooltip_' + ['RelicEffect'] + '_arg' + argc)
 
-        base = item.find('./Level[@Level=\'0\']')
-
-        if base is None:
-            continue
-
-        bonus = {}
-
-        if gem['TypeGem'] == 'GEM_HIGH_COLOR':
-            bonus['Stat'] = row['StringArg']
+        elif gem['TypeGem'] == 'GEM_HIGH_COLOR':
+            gem['StatGrowth'] = row['StringArg']
 
         elif gem['TypeGem'] == 'GEM_SKILL':
             skill = gem['$ID_NAME'][4:]
@@ -404,34 +438,98 @@ def parse_gems(cache: Cache):
                 LOG.warning('Skill Missing: %s', skill)
                 continue
 
-            bonus['Skill'] = skill
+            gem['GemSkill'] = skill
 
         else:
-            bonus_stat   = GEM_STATS[re.match('/?(\S+?)/(\S+?)/?', base.get('PropList_MainOrSubWeapon'))        .group(1)]
-            penalty_stat = GEM_STATS[re.match('/?(\S+?)/(\S+?)/?', base.get('PropList_MainOrSubWeapon_Penalty')).group(1)]
+            item = xml.find('./Item[@Name=\'' + gem['$ID_NAME'] + '\']')
 
-            penalty = {}
+            if item is None:
+                LOG.warning('Gem Levels Missing: %s', gem['$ID_NAME'])
+                continue
 
-            bonus  [bonus_stat]   = [0 for i in range(10)]
-            penalty[penalty_stat] = [0 for i in range(10)]
+            base = item.find('./Level[@Level=\'0\']')
 
-            for property in item:
+            if base is None:
+                continue
+
+            gain = GEM_STATS[re.match('/?(\S+?)/(\S+?)/?', base.get('PropList_MainOrSubWeapon'))        .group(1)]
+            lose = GEM_STATS[re.match('/?(\S+?)/(\S+?)/?', base.get('PropList_MainOrSubWeapon_Penalty')).group(1)]
+
+            stats = {}
+
+            stats[gain] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            stats[lose] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+            for prop in item:
                 try:
-                    level = int(property.get('Level'))
+                    level = int(prop.get('Level'))
                 except:
                     continue
 
-                if level == 0:
-                    continue
+                stats[gain][level] = prop.get('PropList_MainOrSubWeapon')        [len(gain + '/'):]
+                stats[lose][level] = prop.get('PropList_MainOrSubWeapon_Penalty')[len(lose + '/'):]
 
-                bonus  [bonus_stat]  [level] = property.get('PropList_MainOrSubWeapon')        [len(bonus_stat   + '/'):]
-                penalty[penalty_stat][level] = property.get('PropList_MainOrSubWeapon_Penalty')[len(penalty_stat + '/'):]
-
-            gem['Penalty'] = penalty
-
-        gem['Bonus'] = bonus
+            gem['Stats'] = stats
     
     ies_file.close()
+
+def parse_goddess_equipment(c):
+    LUA_RUNTIME = luautil.LUA_RUNTIME
+
+    functions = {
+        'setting_lv460_material'      : 460,
+        'setting_lv470_material_armor': 470,
+        'setting_lv470_material_acc'  : 470
+    }
+
+    materials = {
+        460: {
+            i: {} for i in range(1, 31)
+        },
+        470: {
+            'acc': {
+                i: {} for i in range(1, 31)
+            },
+            'armor': {
+                i: {} for i in range(1, 31)
+            }
+        }
+    }
+
+    for f in functions:
+        if f not in LUA_RUNTIME:
+            continue
+
+        LUA_RUNTIME[f](materials)
+    
+    a = materials[460] 
+
+    materials[460]  = {'armor' : a}
+
+    c.data['goddess_reinf_mat'] = materials
+    
+    ies_list = {
+        'item_goddess_reinforce.ies'    : 460, 
+        'item_goddess_reinforce_470.ies': 470
+    }
+
+    for ies in ies_list:
+        file_name = ies.lower()
+
+        try:
+            ies_path= join(c.PATH_INPUT_DATA, 'ies.ipf', file_name)
+        except:
+            continue
+
+        ies_file   = io.open(ies_path, 'r', encoding = 'utf-8')
+        ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
+
+        obj = []
+
+        for row in ies_reader:
+            obj.append(row)
+
+        c.data['goddess_reinf'][ies_list[ies]] = obj
 
 def parse_goddess_reinforcement(cache: Cache):
     files = cache.EQUIPMENT_REINFORCE_IES
@@ -439,9 +537,9 @@ def parse_goddess_reinforcement(cache: Cache):
     global goddess_atk_list
 
     for file_name in files:
-        try:
-            ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
-        except:
+        ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
+
+        if not exists(ies_path):
             LOG.warning('File not found: %s', file_name)
             continue
         
@@ -476,9 +574,9 @@ def parse_grade_ratios(cache: Cache):
 def parse_items(cache: Cache, file_name: str):
     LOG.info('Parsing Items from %s ...', file_name)
 
-    try:
-        ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
-    except:
+    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
+
+    if not exists(ies_path):
         LOG.warning('File not found: %s', file_name)
         return
    
@@ -499,6 +597,7 @@ def parse_items(cache: Cache, file_name: str):
         obj['Grade']                 = row['ItemGrade'] if 'ItemGrade' in row and row['ItemGrade'] != '' else 1
         obj['Description']           = cache.translate(row['Desc']) if 'Desc' in row else None
         obj['Icon']                  = cache.parse_entity_icon(row['Icon'])
+        obj['Weight']                = float(row['Weight']) if 'Weight' in row else ''
         obj['TimeCoolDown']          = float(int(row['ItemCoolDown']) / 1000) if 'ItemCoolDown' in row else None
         obj['TimeLifeTime']          = float(int(row['LifeTime'])) if 'LifeTime' in row else None
         obj['Tradability']           = '%s%s%s%s' % (
@@ -507,22 +606,24 @@ def parse_items(cache: Cache, file_name: str):
             'T' if row['ShopTrade']   == 'YES' else 'F', # Shop
             'T' if row['TeamTrade']   == 'YES' else 'F', # Team Storage
         )
-        obj['Weight']                = float(row['Weight']) if 'Weight' in row else ''
         obj['Price']                 = row['Price']
         obj['SellPrice']             = row['SellPrice']
 
         obj['Link_Maps']             = []
         obj['Link_Maps_Exploration'] = []
         obj['Link_Monsters']         = []
-        obj['Link_RecipeTarget']     = []
-        obj['Link_RecipeMaterial']   = []
         
         if item_type == 'CARD':
             obj['IconTooltip'] = cache.parse_entity_icon(row['TooltipImage'])
             obj['TypeCard']    = row['CardGroupName'].upper()
 
         if item_type == 'CUBE':
-            cache.data['cube_contents'][row['StringArg']] = {'Cube': row['ClassName'], 'Contents': []}
+            cube = {}
+
+            cube['Item']     = row['ClassName']
+            cube['Contents'] = []
+
+            cache.data['cube_contents'][row['StringArg']] = cube
 
         # HOTFIX: 2021 Savinose Dysnai
         if item_type in ['ARMOR', 'WEAPON'] and re.match('^2021_NewYear_Disnai_.+_box$', row['ClassName']):
@@ -540,110 +641,55 @@ def parse_items(cache: Cache, file_name: str):
     
     ies_file.close()
 
-def parse_links_recipes(constants):
-    log = logging.getLogger('Parse.Recipe.Links')
-    log.setLevel(logging.INFO)
-    log.info('Parsing items for recipes...')
+def parse_recipes(cache: Cache):
+    LOG.info('Parsing Recipes from recipe.ies ...')
 
-    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'recipe.ies')
-    if(not exists(ies_path)):
-       return
-    ies_file = open(ies_path, 'r', encoding = 'utf-8')
-    ies_reader = csv.DictReader(ies_file, delimiter=',', quotechar='"')
+    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'recipe.ies')
+
+    if not exists(ies_path):
+        LOG.warning('File not found: recipe.ies')
+        return
+    
+    ies_file   = open(ies_path, 'r', encoding = 'utf-8')
+    ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
+
     for row in ies_reader:
-        recipe = constants.data['items'][row['ClassName']]
-        if row['TargetItem'] in constants.data['items']:
-            recipe['Link_Target'] = constants.data['items'][row['TargetItem']]['$ID_NAME']
-        else:
-            log.warning('recipe target not found {}'.format( row['TargetItem']))
+        if row['ClassName'] not in cache.data['items']:
             continue
-        recipe['Name'] = 'Recipe - Unknown'
-        recipe['Type'] = 'RECIPES'
-        if recipe['Link_Target'] is not None:
-            recipe['Name'] = 'Recipe - ' + constants.data['items'][row['TargetItem']]['Name']
 
-        # Parse ingredients
-        for i in range(1, 6):
-            if row['Item_' + str(i) + '_1'] == '':
-                continue
+        recipe = cache.data['items'][row['ClassName']]
 
-            obj = {}
-            if row['Item_' + str(i) + '_1'] not in constants.data['items'].keys():
-                logging.warn('missing item {} for recipe {}'.format(row['Item_' + str(i) + '_1'], recipe['Name']))
-                continue
-            
-            obj['Item'] = constants.data['items'][row['Item_' + str(i) + '_1']]['$ID_NAME']
-            obj['Quantity'] = int(row['Item_' + str(i) + '_1_Cnt'])
-            
-            if 'Link_Materials' not in recipe.keys():
-                recipe['Link_Materials'] = []
-                
-            recipe['Link_Materials'].append(obj)
-
-    ies_file.close()
-
-def parse_books_dialog(constants):
-    logging.debug('Parsing books dialog...')
-
-    ies_path = join(constants.PATH_INPUT_DATA, 'ies_client.ipf', 'dialogtext.ies')
-    if(not exists(ies_path)):
-       return
-    ies_file = io.open(ies_path, 'r', encoding = 'utf-8')
-    ies_reader = csv.DictReader(ies_file, delimiter=',', quotechar='"')
-    b = []
-    for row in ies_reader:
-        if row['ClassName'] not in constants.data['items']:
+        if row['TargetItem'] not in cache.data['items']:
+            LOG.warning('Recipe Product Missing: %s', row['TargetItem'])
             continue
-        book = constants.data['items'][row['ClassName']]
-        if 'Text' not in book:
-            book['Text'] = None
+
+        recipe['Name'] = 'Recipe - ' + cache.data['items'][row['TargetItem']]['Name']
+
+        product = {}
         
-        book['Text'] = constants.translate(row['Text'])
-        b.append(book)
-    
-    ies_file.close()
+        product['Item']     = row['TargetItem']
+        product['Quantity'] = int(row['TargetItemCnt'])
 
-def parse_goddess_EQ(c):
-    LUA_RUNTIME = luautil.LUA_RUNTIME
-    LUA_SOURCE = luautil.LUA_SOURCE
-    func_list = {'setting_lv470_material_acc' : 470 ,
-                 'setting_lv470_material_armor' : 470,
-                 'setting_lv460_material' : 460,
-                 }
-    #mat_list_by_lv[460][1][seasonCoin]
-    #mat_list_by_lv[lv]['armor'][1][seasonCoin] = 263
-    mat  = {
-            460: { i : {} for i in range(1, 31) },
-            470: {
-                'acc' : {i : {} for i in range(1, 31) },
-                'armor': {i : {} for i in range(1, 31) }
-                }
-        }
-    for func in func_list:
-        lv = func_list[func]
-        if func not in LUA_RUNTIME:
-            continue
-        LUA_RUNTIME[func](mat)
-    a = mat[460] 
-    mat[460]  = {'armor' : a}
-    c.data['goddess_reinf_mat'] = mat
-    
-    ies_list = {'item_goddess_reinforce.ies' : 460, 
-                'item_goddess_reinforce_470.ies' : 470}
-    objs = {}
-    for ies in ies_list:
-        file_name = ies.lower()
-        try:
-            ies_path= join(c.PATH_INPUT_DATA, 'ies.ipf', file_name)
-        except:
-            continue
-        ies_file = io.open(ies_path, 'r', encoding='utf-8')
-        ies_reader = csv.DictReader(ies_file, delimiter=',', quotechar='"')
-        obj  = []
-        for row in ies_reader:
-            obj.append(row)
-        objs[ies_list[ies]] = obj
-        c.data['goddess_reinf'][ies_list[ies]] = obj
-    
-    
-    
+        recipe['Product'] = product
+
+        if 'Materials' not in recipe:
+            recipe['Materials'] = []
+
+        for i in range(1, 6):
+            item = row['Item_' + str(i) + '_1']
+
+            if item == '':
+                continue
+            
+            if item not in cache.data['items']:
+                LOG.warning('Recipe Material for %s Missing: %s', row['TargetItem'], item)
+                continue
+
+            material = {}
+            
+            material['Item']     = item
+            material['Quantity'] = int(row['Item_' + str(i) + '_1_Cnt'])
+                
+            recipe['Materials'].append(material)
+
+    ies_file.close()

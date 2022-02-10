@@ -48,26 +48,32 @@ class TOSParseCache():
         'item_goddess_reinforce_470.ies': 470
     }
 
-    ITEM_IES = [
-        "item.ies",
-        'item_colorspray.ies',
+    GEM_IES = [
         'item_gem.ies',
+        'item_gem_bernice.ies',
+        'item_gem_relic.ies'
+    ]
+
+    ITEM_IES = [
+        'item.ies',
+        'item_EP12.ies',
+        'item_EP13.ies',
         'item_Equip.ies',
         'item_Equip_EP12.ies',
-        'item_premium.ies',
-        'item_quest.ies',
-        'recipe.ies',
-        'item_EP12.ies',
-        'item_gem_relic.ies',
-        'item_gem_bernice.ies',
-        'item_GuildHousing.ies',
-        'item_PersonalHousing.ies',
-        'item_HiddenAbility.ies',
-        'item_event.ies', 
-        'item_event_Equip.ies', 
-        'item_EP13.ies',
         'item_Equip_EP13.ies',
+        'item_event_Equip.ies', 
+        'item_gem.ies',
+        'item_gem_bernice.ies',
+        'item_gem_relic.ies',
+        'item_HiddenAbility.ies',
+        'item_premium.ies',
+        'item_event.ies', 
+        'item_quest.ies',
         'item_Reputation.ies',
+        'item_PersonalHousing.ies',
+        'item_GuildHousing.ies',
+        'item_colorspray.ies',
+        'recipe.ies',
     ]
     
     data_build = ['assets_icons', 'maps', 'maps_by_name', 'maps_by_position']

@@ -91,7 +91,7 @@ if __name__ == '__main__':
     
     insert_static(c)
     
-    items.parse_goddess_EQ(c)
+    items.parse_goddess_equipment(c)
     
     monsters.parse(c)
     monsters.parse_links(c)
