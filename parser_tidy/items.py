@@ -15,6 +15,7 @@ import parse_xac
 import xml.etree.ElementTree as ET
 
 from cache import TOSParseCache as Cache
+from constants import COLLECTION_STATS, GEM_STATS
 from math import floor
 from os.path import exists, join
 
@@ -58,81 +59,83 @@ def parse(cache: Cache = None, from_scratch: bool = True):
 
     parse_card_battle(cache)
     
-    parse_cubes(cache)
-    parse_links_collections(cache)
-    
     parse_gems(cache)
-    parse_gems_bonus(cache)
     
-    parse_links_skills(cache)
+    parse_cubes(cache)
+    parse_collections(cache)
+    
     parse_links_recipes(cache)
     
     parse_books_dialog(cache)
 
-def parse_items(cache: Cache, file_name: str):
-    LOG.info('Parsing Items from %s...', file_name)
+def parse_card_battle(cache: Cache):
+    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'cardbattle.ies')
 
-    try:
-        ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
-    except:
-        LOG.warning('File not found: %s', file_name)
+    if not exists(ies_path):
+        LOG.warning('File not found: cardbattle.ies')
         return
-   
-    ies_file   = io.open(ies_path, 'r', encoding = 'utf-8')
-    ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
     
+    ies_file   = open(ies_path, 'r', encoding = 'utf-8')
+    ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
+
     for row in ies_reader:
-        item_type = row['GroupName'].upper() if 'GroupName' in row else None 
-        item_type = row['Category'].upper() if 'Category' in row and row['Category'] != '' else item_type
+        obj = cache.data['items'][row['ClassName']]
 
-        obj = {}
+        obj['Stat_Height'] = int(row['Height'])
+        obj['Stat_Legs']   = int(row['LegCount'])
+        obj['Stat_Weight'] = int(row['BodyWeight'])
 
-        obj['$ID']                   = str(row['ClassID'])
-        obj['$ID_NAME']              = row['ClassName']
-        obj['Description']           = cache.translate(row['Desc']) if 'Desc' in row else None
-        obj['Icon']                  = cache.parse_entity_icon(row['Icon'])
-        obj['Name']                  = cache.translate(row['Name']) if 'Name' in row else None
-        obj['Grade']                 = row['ItemGrade'] if 'ItemGrade' in row and row['ItemGrade'] != '' else 1
-        obj['Price']                 = row['SellPrice']
-        obj['TimeCoolDown']          = float(int(row['ItemCoolDown']) / 1000) if 'ItemCoolDown' in row else None
-        obj['TimeLifeTime']          = float(int(row['LifeTime'])) if 'LifeTime' in row else None
-        obj['Tradability']           = '%s%s%s%s' % (
-            'T' if row['MarketTrade'] == 'YES' else 'F', # Market
-            'T' if row['UserTrade']   == 'YES' else 'F', # Players
-            'T' if row['ShopTrade']   == 'YES' else 'F', # Shop
-            'T' if row['TeamTrade']   == 'YES' else 'F', # Team Storage
-        )
-        obj['Type']                  = item_type
-        obj['Weight']                = float(row['Weight']) if 'Weight' in row else ''
+    ies_file.close()
 
-        obj['Link_Collections']      = []
-        obj['Link_Cubes']            = []
-        obj['Link_Maps']             = []
-        obj['Link_Maps_Exploration'] = []
-        obj['Link_Monsters']         = []
-        obj['Link_RecipeTarget']     = []
-        obj['Link_RecipeMaterial']   = []
+def parse_collections(cache: Cache):
+    LOG.info('Parsing Collections from collection.ies ...')
+
+    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'collection.ies')
+
+    if not exists(ies_path):
+        LOG.warning('File not found: collection.ies')
+        return
+
+    ies_file   = open(ies_path, 'r', encoding = 'utf-8')
+    ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
+
+    for row in ies_reader:
+        if row['ClassName'] not in cache.data['items']:
+            continue
+
+        collection = cache.data['items'][row['ClassName']]
+
+        if 'Collectables' not in collection:
+            collection['Collectables'] = []
+            collection['Bonus']        = []
         
-        if item_type == 'CARD':
-            obj['IconTooltip'] = cache.parse_entity_icon(row['TooltipImage'])
-            obj['TypeCard']    = row['CardGroupName']
+        for i in range(1, 10):
+            item = row['ItemName_' + str(i)]
 
-        if item_type == 'CUBE':
-            cache.data['cube_contents'][row['StringArg']] = {'Cube': row['ClassName'], 'Contents': {}}
+            if item == '' or item not in cache.data['items']:
+                continue
 
-        # HOTFIX: 2021 Savinose Dysnai
-        if item_type in ['ARMOR', 'WEAPON'] and re.match('^2021_NewYear_Disnai_.+_box$', row['ClassName']):
-            obj['Type'] = 'PREMIUM'
-        
-        # HOTFIX: Event Weapon Boxes
-        if item_type == 'WEAPON' and re.match('^(?:(?!2021).)*_?(?:box|SelectBox)_?.*$', row['ClassName']):
-            obj['Type'] = 'EVENT'
-        
-        # HOTFIX: [Event] Enchant Jewel Box
-        if item_type == 'CONSUME':
-            obj['Type'] = 'EVENT'
-        
-        cache.data['items'][obj['$ID_NAME']] = obj
+            collection['Collectables'].append(cache.data['items'][item]['$ID_NAME'])
+
+        for bonus in re.findall('/?(\S+?)/(\S+?)/?', row['PropList'] + '/' + row['AccPropList']):
+            collection['Bonus'].append(COLLECTION_STATS[bonus[0]], int(bonus[1]))
+    
+    ies_file.close()
+
+def parse_cubes(cache: Cache):
+    LOG.info('Parsing Cubes from reward_ratio_open_list.ies ...')
+
+    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'reward_ratio_open_list.ies')
+
+    if not exists(ies_path):
+        LOG.warning('File not found: reward_ratio_open_list.ies')
+        return
+    
+    ies_file   = open(ies_path, 'r', encoding = 'utf-8')
+    ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
+
+    for row in ies_reader:
+        cache.data['cube_contents'][row['Group']]['Contents'].append({[row['ItemName']]: row['Ratio']})
     
     ies_file.close()
 
@@ -151,13 +154,13 @@ def parse_equipment(cache: Cache, file_name: str):
     LUA_RUNTIME = luautil.LUA_RUNTIME
 
     for row in ies_reader:
-        if str(row['ClassName']) not in cache.data['items']:
+        if row['ClassName'] not in cache.data['items']:
             continue
         
         item_grade          = cache.data['grade_ratios'][int(row['ItemGrade'])]
         item_type_equipment = row['ClassType']
 
-        obj = cache.data['items'][str(row['ClassName'])]
+        obj = cache.data['items'][row['ClassName']]
         
         obj['Type'] = 'EQUIPMENT'
 
@@ -238,14 +241,8 @@ def parse_equipment(cache: Cache, file_name: str):
             if row['ReqToolTip'][:-1] == '헤어 코스튬':
                 obj['TypeEquipment'] = 'HAIR_ACC_' + row['ReqToolTip'][-1:]
         
-        obj['Unidentified']       = int(row['NeedAppraisal']) == 1
+        obj['Unidentified']       = int(row['NeedAppraisal'])    == 1
         obj['UnidentifiedRandom'] = int(row['NeedRandomOption']) == 1
-
-        obj['Link_Set'] = None
-
-        # HOTFIX: if it's a Rapier, use THRUST as the TypeAttack
-        # if obj['TypeEquipment'] == TOSEquipmentType.RAPIER:
-        #     obj['TypeAttack'] = TOSAttackType.MELEE_THRUST
 
         # HOTFIX: Agny Necklace
         if 'ADD_FIRE' in row['BasicTooltipProp'].split(','):
@@ -314,48 +311,8 @@ def parse_equipment(cache: Cache, file_name: str):
     
     ies_file.close()
 
-def parse_goddess_reinforcement(cache: Cache):
-    files = cache.EQUIPMENT_REINFORCE_IES
-
-    global goddess_atk_list
-
-    for file_name in files:
-        try:
-            ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
-        except:
-            LOG.warning('File not found: %s', file_name)
-            continue
-        
-        ies_file   = io.open(ies_path, 'r', encoding = 'utf-8')
-        ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
-
-        goddess_atk_list[files[file_name]] = next(ies_reader)
-
-        ies_file.close()
-
-def parse_grade_ratios(cache: Cache):
-    LOG.info('Parsing Grade Ratios from item_grade.ies')
-
-    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'item_grade.ies')
-
-    if not exists(ies_path):
-        LOG.warning('File not found: item_grade.ies')
-        return
-
-    ies_file   = io.open(ies_path, 'r', encoding = 'utf-8')
-    ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
-
-    grade_ratios = {}
-
-    for row in ies_reader:
-        grade_ratios[int(row['Grade'])] = row
-
-    cache.data['grade_ratios'] = grade_ratios
-
-    ies_file.close()
-
 def parse_equipment_sets(cache: Cache):
-    LOG.info('Parsing Equipment Sets from setitem.ies')
+    LOG.info('Parsing Equipment Sets from setitem.ies ...')
 
     ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'setitem.ies')
 
@@ -385,230 +342,203 @@ def parse_equipment_sets(cache: Cache):
 
         # Parse Set Items
         for i in range(1, 8):
-            item_name = row['ItemName_' + str(i)]
+            item = row['ItemName_' + str(i)]
 
-            if item_name == '' or item_name not in cache.data['items']:
+            if item == '' or item not in cache.data['items']:
                 continue
 
-            obj['Set_Items'].append(item_name)
+            obj['Set_Items'].append(item)
 
         cache.data['equipment_sets'][obj['$ID_NAME']] = obj
 
     ies_file.close()
 
-def parse_card_battle(cache: Cache):
-    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'cardbattle.ies')
+def parse_gems(cache: Cache):
+    LOG.info('Parsing Gems from item_gem.ies ...')
+
+    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'item_gem.ies')
 
     if not exists(ies_path):
-        LOG.warning('File not found: cardbattle.ies')
+        LOG.warning('File not found: item_gem.ies')
         return
-    
-    ies_file   = open(ies_path, 'r', encoding = 'utf-8')
-    ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
 
-    for row in ies_reader:
-        obj = cache.data['items'][row['ClassName']]
-
-        obj['Stat_Height'] = int(row['Height'])
-        obj['Stat_Legs']   = int(row['LegCount'])
-        obj['Stat_Weight'] = int(row['BodyWeight'])
-
-    ies_file.close()
-
-def parse_cubes(cache: Cache):
-    LOG.info('Parsing Cubes from reward_ratio_open_list.ies')
-
-    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'reward_ratio_open_list.ies')
-
-    if not exists(ies_path):
-        LOG.warning('File not found: reward_ratio_open_list.ies')
-        return
-    
-    ies_file   = open(ies_path, 'r', encoding = 'utf-8')
-    ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
-
-    for row in ies_reader:
-        cache.data['cube_contents'][row['Group']]['Contents'][row['ItemName']] = row['Ratio']
-    
-    ies_file.close()
-
-def parse_links_collections(constants):
-    log = logging.getLogger('Parse.Collections')
-    log.setLevel(logging.INFO)
-    log.info('Parsing items for collections...')
-    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'collection.ies')
-    if(not exists(ies_path)):
-       return
     ies_file = open(ies_path, 'r', encoding = 'utf-8')
-    ies_reader = csv.DictReader(ies_file, delimiter=',', quotechar='"')
+    ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
 
+    xml_path = join(cache.PATH_INPUT_DATA, 'xml.ipf', 'socket_property.xml')
+
+    if exists(xml_path):
+        xml = ET.parse(xml_path).getroot()
+    else:
+        LOG.warning('File not found: socket_property.xml')
+        xml = ET.Element('SocketProperty')
+    
     for row in ies_reader:
-        if row['ClassName'] not in constants.data['items']:
+        if row['ClassName'] not in cache.data['items']:
             continue
 
-        collection = constants.data['items'][row['ClassName']]
-        collection['Type']         = 'COLLECTION'
-        if not 'Link_Items' in collection.keys():
-            collection['Link_Items'] = []
-            collection['Bonus'] = []
-        # Parse items
-        for i in range(1, 10):
-            item_name = row['ItemName_' + str(i)]
+        gem = cache.data['items'][row['ClassName']]
 
-            if item_name == '':
+        gem['TypeGem'] = row['EquipXpGroup'].upper() if gem['Type'] == 'GEM' else row['GemType'].upper()
+        gem['Type']    = 'GEM'
+
+        item = xml.find('./Item[@Name=\'' + gem['$ID_NAME'] + '\']')
+
+        if item is None:
+            continue
+
+        base = item.find('./Level[@Level=\'0\']')
+
+        if base is None:
+            continue
+
+        bonus = {}
+
+        if gem['TypeGem'] == 'GEM_HIGH_COLOR':
+            bonus['Stat'] = row['StringArg']
+
+        elif gem['TypeGem'] == 'GEM_SKILL':
+            skill = gem['$ID_NAME'][4:]
+
+            if skill not in cache.data['skills_by_name']:
+                LOG.warning('Skill Missing: %s', skill)
                 continue
 
-            collection['Link_Items'].append(constants.data['items'][item_name]['$ID_NAME'])
+            bonus['Skill'] = skill
 
-        # Parse bonus
-        bonus = row['PropList'].split('/') + row['AccPropList'].split('/')
+        else:
+            bonus_stat   = GEM_STATS[re.match('/?(\S+?)/(\S+?)/?', base.get('PropList_MainOrSubWeapon'))        .group(1)]
+            penalty_stat = GEM_STATS[re.match('/?(\S+?)/(\S+?)/?', base.get('PropList_MainOrSubWeapon_Penalty')).group(1)]
 
-        for i in bonus:
-            if i == '':
-                bonus.remove(i)
-        if (len(bonus) != 1):
-            for i in range(0, len(bonus), 2):
-                collection['Bonus'].append([
-                    parse_links_items_bonus_stat(bonus[i]),   # Property
-                    int(bonus[i + 1])                         # Value
-                ])
+            penalty = {}
+
+            bonus  [bonus_stat]   = [0 for i in range(10)]
+            penalty[penalty_stat] = [0 for i in range(10)]
+
+            for property in item:
+                try:
+                    level = int(property.get('Level'))
+                except:
+                    continue
+
+                if level == 0:
+                    continue
+
+                bonus  [bonus_stat]  [level] = property.get('PropList_MainOrSubWeapon')        [len(bonus_stat   + '/'):]
+                penalty[penalty_stat][level] = property.get('PropList_MainOrSubWeapon_Penalty')[len(penalty_stat + '/'):]
+
+            gem['Penalty'] = penalty
+
+        gem['Bonus'] = bonus
+    
     ies_file.close()
-    return constants
 
-def parse_links_items_bonus_stat(stat):
-    return {
-        'CON_BM': 'CON',
-        'DEX_BM': 'DEX',
-        'INT_BM': 'INT',
-        'MNA_BM': 'SPR',
-        'STR_BM': 'STR',
+def parse_goddess_reinforcement(cache: Cache):
+    files = cache.EQUIPMENT_REINFORCE_IES
 
-        'CRTATK_BM': 'Critical Attack',
-        'CRTMATK_BM': 'Critical Magic Attack',
-        'CRTHR_BM': 'Critical Rate',
-        'CRTDR_BM': 'Critical Defense',
+    global goddess_atk_list
 
-        'MHP_BM': 'Maximum HP',
-        'MSP_BM': 'Maximum SP',
-        'RHP_BM': 'HP Recovery',
-        'RSP_BM': 'SP Recovery',
-
-        'DEF_BM': 'Defense',
-        'MDEF_BM': 'Magic Defense',
-        'MATK_BM': 'Magic Attack',
-        'PATK_BM': 'Physical Attack',
-
-        'DR_BM': 'Evasion',
-        'HR_BM': 'Accuracy',
-        'MHR_BM': 'Magic Amplification',  # ???
-
-        'ResDark_BM': 'Dark Property Resistance',
-        'ResEarth_BM': 'Earth Property Resistance',
-        'ResHoly_BM': 'Holy Property Resistance',
-
-        'MaxSta_BM': 'Stamina',
-        'MaxAccountWarehouseCount': 'Team Storage Slots',
-        'MaxWeight_Bonus': 'Weight Limit',
-        'MaxWeight_BM': 'Weight Limit'
-    }[stat]
-
-
-def parse_gems(constants):
-    log = logging.getLogger('Parse.Gems')
-    log.setLevel(logging.INFO)
-    log.info('Parsing gems...')
-
-    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'item_gem.ies')
-    if(not exists(ies_path)):
-       return
-    ies_file = open(ies_path, 'r', encoding = 'utf-8')
-    ies_reader = csv.DictReader(ies_file, delimiter=',', quotechar='"')
-
-    for row in ies_reader:
-        obj = constants.data['items'][row['ClassName']]
-        obj['BonusBoots'] = []
-        obj['BonusGloves'] = []
-        obj['BonusSubWeapon'] = []
-        obj['BonusTopAndBottom'] = []
-        obj['BonusWeapon'] = []
-        obj['TypeGem'] = row['EquipXpGroup']
-    ies_file.close()
-    return constants
-
-def parse_gems_bonus(constants):
-    log = logging.getLogger('Parse.Gem.Bonus')
-    log.setLevel(logging.INFO)
-    log.info('Parsing gems bonus...')
-
-    xml_path = join(constants.PATH_INPUT_DATA, 'xml.ipf', 'socket_property.xml')
-    if(not exists(xml_path)):
-       return
-    xml = ET.parse(xml_path).getroot()
-
-    SLOTS = ['TopLeg', 'HandOrFoot', 'MainOrSubWeapon']
-
-    for item in xml:
+    for file_name in files:
         try:
-            gem = constants.data['items'][item.get('Name')]
+            ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
         except:
-            logging.warning('gem not found {}'.format(item.get('Name')))
+            LOG.warning('File not found: %s', file_name)
             continue
-
-        for level in item:
-            if level.get('Level') == '0':
-                continue
-
-            for slot in SLOTS:
-                bonus = level.get('PropList_' + slot)
-                penalty = level.get('PropList_' + slot + '_Penalty')
-
-                for slot in (slot.split('Or') if 'Or' in slot else [slot]): # support for Re:Build 2-in-1 slots
-                    for prop in [bonus, penalty]:
-                        if prop is not None and prop != 'None':
-                            if gem['TypeGem'] == 'Gem_Skill':
-                                gem['Bonus' + parse_gems_slot(slot)].append({
-                                    'Stat': constants.translate(prop).replace('OptDesc/', '')
-                                })
-                            elif gem['TypeGem'] == 'Gem':
-                                prop_slot = prop.split('/')
-
-                                stat ='ADD_' + prop_slot[0]
-                                stat = prop_slot[0] if stat is None else stat
-
-                                gem['Bonus' + parse_gems_slot(slot)].append({
-                                    'Stat': stat,
-                                    'Value': int(prop_slot[1])
-                                })
-            # constants.data['items'][gem['$ID']] = gem
-
-
-def parse_gems_slot(key):
-    return {
-        'Foot': 'Boots',
-        'Hand': 'Gloves',
-        'Main': 'Weapon',
-        'SubWeapon': 'SubWeapon',
-        'TopLeg': 'TopAndBottom',
-        'Weapon': 'Weapon',
-    }[key]
-
-def parse_links_skills(constants):
-    log = logging.getLogger('Parse.Gem.Links')
-    log.setLevel(logging.INFO)
-    log.info('Parsing skills for gems...')
-
-    for gem in constants.data['items'].values():
-        if gem['Type'] != 'GEM':
-            continue
-        skill = gem['$ID_NAME'][len('Gem_'):]
-        if (skill not in constants.data['skills_by_name']):
-            logging.debug('skills missing : %s', skill)
-            continue
-        skill = constants.data['skills_by_name'][skill]['$ID']
-        gem['Link_Skill'] = skill
-        constants.data['items'][gem['$ID_NAME']] = gem
         
+        ies_file   = io.open(ies_path, 'r', encoding = 'utf-8')
+        ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
 
+        goddess_atk_list[files[file_name]] = next(ies_reader)
+
+        ies_file.close()
+
+def parse_grade_ratios(cache: Cache):
+    LOG.info('Parsing Grade Ratios from item_grade.ies ...')
+
+    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'item_grade.ies')
+
+    if not exists(ies_path):
+        LOG.warning('File not found: item_grade.ies')
+        return
+
+    ies_file   = io.open(ies_path, 'r', encoding = 'utf-8')
+    ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
+
+    grade_ratios = {}
+
+    for row in ies_reader:
+        grade_ratios[int(row['Grade'])] = row
+
+    cache.data['grade_ratios'] = grade_ratios
+
+    ies_file.close()
+
+def parse_items(cache: Cache, file_name: str):
+    LOG.info('Parsing Items from %s ...', file_name)
+
+    try:
+        ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
+    except:
+        LOG.warning('File not found: %s', file_name)
+        return
+   
+    ies_file   = io.open(ies_path, 'r', encoding = 'utf-8')
+    ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
+    
+    for row in ies_reader:
+        item_type = row['GroupName'].upper() if 'GroupName' in row else None 
+        item_type = row['Category'].upper() if 'Category' in row and row['Category'] != '' else item_type
+
+        obj = {}
+
+        obj['$ID']                   = str(row['ClassID'])
+        obj['$ID_NAME']              = row['ClassName']
+        obj['Name']                  = cache.translate(row['Name']) if 'Name' in row else None
+        obj['Type']                  = item_type
+        obj['InternalType']          = item_type
+        obj['Grade']                 = row['ItemGrade'] if 'ItemGrade' in row and row['ItemGrade'] != '' else 1
+        obj['Description']           = cache.translate(row['Desc']) if 'Desc' in row else None
+        obj['Icon']                  = cache.parse_entity_icon(row['Icon'])
+        obj['TimeCoolDown']          = float(int(row['ItemCoolDown']) / 1000) if 'ItemCoolDown' in row else None
+        obj['TimeLifeTime']          = float(int(row['LifeTime'])) if 'LifeTime' in row else None
+        obj['Tradability']           = '%s%s%s%s' % (
+            'T' if row['MarketTrade'] == 'YES' else 'F', # Market
+            'T' if row['UserTrade']   == 'YES' else 'F', # Players
+            'T' if row['ShopTrade']   == 'YES' else 'F', # Shop
+            'T' if row['TeamTrade']   == 'YES' else 'F', # Team Storage
+        )
+        obj['Weight']                = float(row['Weight']) if 'Weight' in row else ''
+        obj['Price']                 = row['Price']
+        obj['SellPrice']             = row['SellPrice']
+
+        obj['Link_Maps']             = []
+        obj['Link_Maps_Exploration'] = []
+        obj['Link_Monsters']         = []
+        obj['Link_RecipeTarget']     = []
+        obj['Link_RecipeMaterial']   = []
+        
+        if item_type == 'CARD':
+            obj['IconTooltip'] = cache.parse_entity_icon(row['TooltipImage'])
+            obj['TypeCard']    = row['CardGroupName'].upper()
+
+        if item_type == 'CUBE':
+            cache.data['cube_contents'][row['StringArg']] = {'Cube': row['ClassName'], 'Contents': []}
+
+        # HOTFIX: 2021 Savinose Dysnai
+        if item_type in ['ARMOR', 'WEAPON'] and re.match('^2021_NewYear_Disnai_.+_box$', row['ClassName']):
+            obj['Type'] = 'PREMIUM'
+        
+        # HOTFIX: Event Weapon Boxes
+        if item_type == 'WEAPON' and re.match('^(?:(?!2021).)*_?(?:box|SelectBox)_?.*$', row['ClassName']):
+            obj['Type'] = 'EVENT'
+        
+        # HOTFIX: [Event] Enchant Jewel Box
+        if item_type == 'CONSUME':
+            obj['Type'] = 'EVENT'
+        
+        cache.data['items'][obj['$ID_NAME']] = obj
+    
+    ies_file.close()
 
 def parse_links_recipes(constants):
     log = logging.getLogger('Parse.Recipe.Links')
@@ -651,20 +581,6 @@ def parse_links_recipes(constants):
             recipe['Link_Materials'].append(obj)
 
     ies_file.close()
-
-def parse_gem_bernice(constants):
-    file = 'item_gem_relic.ies'
-    logging.debug('Parsing bernice gems (ep13)...')
-    
-    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf',file)
-    ies_file = open(ies_path, 'r', encoding = 'utf-8')
-    ies_reader = csv.DictReader(ies_file, delimiter=',', quotechar='"')
-    rows = []
-    for row in ies_reader:
-        rows.append(row)
-    ies_file.close()
-    return constants
-
 
 def parse_books_dialog(constants):
     logging.debug('Parsing books dialog...')
