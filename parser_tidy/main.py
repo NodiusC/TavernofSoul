@@ -19,7 +19,7 @@ import monsters
 import os
 import parse_xac
 import skills
-import skill_bytool
+import effects
 import sys
 import translation
 import vaivora
@@ -76,7 +76,7 @@ if __name__ == '__main__':
     
     asset.parse(cache)
     jobs.parse(cache)
-    skill_bytool.parse(cache)
+    effects.parse(cache)
     skills.parse(cache)
     attributes.parse(cache)
     attributes.parse_links(cache)   

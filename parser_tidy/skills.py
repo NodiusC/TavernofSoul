@@ -111,9 +111,9 @@ def parse_skills(is_rebuild, constants):
             obj['Link_Job'] = None
             obj['other'] = []
             obj['TargetBuffs'] = []
-            if row['ClassName'] in constants.data['xml_skills']:
-                data                    = constants.data['xml_skills'][row['ClassName']]
-                obj['TargetBuffs']      = data['TargetBuffs']
+            if row['ClassName'] in constants.data['skill_effects']:
+                data                    = constants.data['skill_effects'][row['ClassName']]
+                obj['TargetBuffs']      = data['Effects']
 
 
             # Parse TypeAttack

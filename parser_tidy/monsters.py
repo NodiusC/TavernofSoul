@@ -201,8 +201,8 @@ def parse_skills(cache: Cache):
             skill['AAR']       = row['SklSR']
             skill['Cooldown']  = row['BasicCoolDown'] if 'BasicCoolDown' in row else 0
 
-            if skill['$ID_NAME'] in cache.data['xml_skills']:
-                skill['TargetBuffs'] = cache.data['xml_skills'][skill['$ID_NAME']]['TargetBuffs']
+            if skill['$ID_NAME'] in cache.data['skill_effects']:
+                skill['Effects'] = cache.data['skill_effects'][skill['$ID_NAME']]['Effects']
 
             type_skill = re.match('(?:Mon_)?(\S+)(?:_(?:Attack|Skill)_?\d?)', skill['$ID_NAME'])
 

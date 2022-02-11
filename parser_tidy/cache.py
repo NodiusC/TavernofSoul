@@ -97,6 +97,7 @@ class TOSParseCache():
        'attributes'        : {},
        'attributes_by_name': {},
        'skills'            : {},
+       'skill_effects'     : {},
        'monsters'          : {},
        'monster_skills'    : {},
        'monster_drops'     : [],
