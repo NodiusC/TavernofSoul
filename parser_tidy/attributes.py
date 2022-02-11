@@ -56,7 +56,7 @@ def parse_attributes( constants):
             popped = []
             for count in range(len(obj['Link_Skills'])):
                 skill = obj['Link_Skills'][count]
-                if skill not in constants.data['skills_by_name']:
+                if skill not in constants.data['skills']:
                     popped.append(count)
             popped.sort()
             popped.reverse()
@@ -119,9 +119,9 @@ def parse_links_jobs(constants):
                     
                    
                     # Parse attribute skill (in case it is missing in the ability.ies)
-                    if not attribute['Link_Skills'] and row2['UnlockArgStr'] in constants.data['skills_by_name']:
+                    if not attribute['Link_Skills'] and row2['UnlockArgStr'] in constants.data['skills']:
                         logging.debug('adding missing skill %s', row2['UnlockArgStr'])
-                        skill = constants.data['skills_by_name'][row2['UnlockArgStr']]
+                        skill = constants.data['skills'][row2['UnlockArgStr']]
                         skill['Link_Attributes'].append( attribute['$ID'])
                         attribute['Link_Skills'].append(skill['$ID'])
                         constants.data['skills'][str(skill['$ID'])]['Link_Attributes'] = skill['Link_Attributes']
@@ -169,6 +169,6 @@ def parse_clean(constants):
             constants.data['jobs_by_name'][str(job['$ID_NAME'])]['Link_Attributes']  = [link for link in constants.data['jobs_by_name'][str(job['$ID_NAME'])]['Link_Attributes'] if link != attribute_id]
         for skill in constants.data['skills'].values():
             skill['Link_Attributes'] = [link for link in skill['Link_Attributes'] if link != attribute_id]
-            constants.data['skills_by_name'] [str(skill['$ID_NAME'])]['Link_Attributes']  =  [link for link in constants.data['skills_by_name'] [str(skill['$ID_NAME'])]['Link_Attributes'] if link != attribute_id]
+            constants.data['skills'] [str(skill['$ID_NAME'])]['Link_Attributes']  =  [link for link in constants.data['skills'] [str(skill['$ID_NAME'])]['Link_Attributes'] if link != attribute_id]
             
             

@@ -7,276 +7,224 @@ Created on Sun Oct  3 20:11:07 2021
 
 import csv
 import logging
-import os
-import glob
+import luautil
+import re
+
 from os.path import exists, join
 from cache import TOSParseCache as Cache
-import luautil
 
+LOG = logging.getLogger('Parse.Monsters')
+LOG.setLevel(logging.INFO)
 
-log = logging.getLogger("parse.monsters")
-log.setLevel("INFO")
 class TOSMonsterRace():
-    BEAST = 0
-    DEMON = 1
-    INSECT = 2
-    ITEM = 3
-    MUTANT = 4
-    PLANT = 5
+    BEAST   = 0
+    DEMON   = 1
+    INSECT  = 2
+    ITEM    = 3
+    MUTANT  = 4
+    PLANT   = 5
     VELNAIS = 6
 
     @staticmethod
     def value_of(string):
         try:
             return {
-                'WIDLING': 'BEAST',
-                'VELNIAS': 'DEMON',
-                'KLAIDA': 'INSECT',
-                'ITEM': 'ITEM',
+                'WIDLING' : 'BEAST',
+                'VELNIAS' : 'DEMON',
+                'KLAIDA'  : 'INSECT',
+                'ITEM'    : 'ITEM',
                 'PARAMUNE': 'MUTANT',
                 'FORESTER': 'PLANT',
-                'VELNAIS': 'VELNAIS',
-                '': ''
+                'VELNAIS' : 'VELNAIS',
+                ''        : ''
+
             }[string.upper()]
         except:
             return string.upper()
 
+monster_constants     = {}
+statbase_monster      = {} # The content of the variable appears unused
+statbase_monster_type = {} # The content of the variable appears unused
+statbase_monster_race = {} # The content of the variable appears unused
 
+def parse(cache: Cache = None):
+    if cache == None:
+        cache = Cache()
 
-statbase_monster = {}
-statbase_monster_type = {}
-
-statbase_monster_race = {}
-monster_const={}
-
-
-def parse(c = None):
-    if (c==None):
-        c= Cache()
-        c.build()
-        luautil.init()
-    parse_monsters_statbase('statbase_monster.ies', statbase_monster,c)
-    parse_monsters_statbase('monster_const.ies', monster_const,c)
-    parse_monsters_statbase('statbase_monster_type.ies', statbase_monster_type,c)
-    parse_monsters_statbase('statbase_monster_race.ies', statbase_monster_race,c)
-
-    parse_monsters('monster.ies', c)
-    parse_monsters('monster_event.ies', c)
-    parse_monsters('monster_npc.ies', c)
-    parse_monsters('Monster_solo_dungeon.ies',c)
-    parse_monsters('monster_pcsummon.ies',c)
-    parse_monsters('monster_pet.ies',c)
-    parse_monsters('Monster_BountyHunt.ies',c)
-    parse_monsters('monster_guild.ies',c)
-    parse_monsters('monster_mgame.ies',c)
-    return c
+        cache.build('jtos')
     
+    luautil.init(cache)
 
-def parse_monsters(file_name, constants):
-    
-    
-    log.info('Parsing %s...', file_name)
+    parse_statbase(cache, 'monster_const.ies',         monster_constants)
+    parse_statbase(cache, 'statbase_monster.ies',      statbase_monster)      # The content of the variable appears unused
+    parse_statbase(cache, 'statbase_monster_type.ies', statbase_monster_type) # The content of the variable appears unused
+    parse_statbase(cache, 'statbase_monster_race.ies', statbase_monster_race) # The content of the variable appears unused
+
+    parse_skills(cache)
+
+    for file in cache.MONSTER_IES:
+        parse_monsters(cache, file)
+
+    parse_drops(cache)
+
+def parse_drops(cache: Cache):
+    for monster in cache.data['monsters'].values():
+        file_name = monster['$ID_NAME'] + '.ies'
+
+        LOG.info('Parsing Drops from %s', file_name)
+
+        ies_path = join(cache.PATH_INPUT_DATA, 'ies_drop.ipf', file_name)
+
+        if not exists(ies_path):
+            continue
+
+        with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
+            for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
+                if row['ItemClassName'] == '':
+                    continue
+                
+                if row['ItemClassName'] not in cache.data['items']:
+                    LOG.warning('Item Drop Missing: %s', row['ItemClassName'])
+                    continue
+
+                drop = {}
+
+                drop['Item']      = row['ItemClassName']
+                drop['Monster']   = monster['$ID_NAME']
+                drop['Chance']    = float(int(row['DropRatio']) / 100.0)
+                drop['MinSilver'] = int(row['Money_Min'])
+                drop['MaxSilver'] = int(row['Money_Max'])
+
+                cache.data['monster_drops'].append(drop)
+
+def parse_monsters(cache: Cache, file_name: str):
+    LOG.info('Parsing Characters from %s ...', file_name)
 
     LUA_RUNTIME = luautil.LUA_RUNTIME
-    LUA_SOURCE = luautil.LUA_SOURCE
 
-    ies_path = join(constants.PATH_INPUT_DATA, "ies.ipf", file_name)
+    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
+
     if not exists(ies_path):
-        log.warning("file not found {}".format(ies_path))
-        return 
-    ies_file = open(ies_path, 'r', encoding="utf-8")
-    ies_reader = csv.DictReader(ies_file, delimiter=',', quotechar='"')
-    for row in ies_reader:
-        #logging.debug('Parsing monster: %s :: %s', row['ClassID'], row['ClassName'])
+        LOG.warning('File not found: %s', file_name)
+        return
 
-        # HotFix: these properties need to be calculated before the remaining ones
-        row['Lv'] = int(row['Level']) if int(row['Level']) > 1 else 1
+    with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
+        for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
+            # HOTFIX: These properties need to be calculated before the remaining ones
+            row['Lv'] = int(row['Level']) if int(row['Level']) > 1 else 1
 
-        # injection constants
-        for k, v in monster_const[1].items():
-            if (k != "ClassID" and k != "Lv"):
-                if v in LUA_RUNTIME and LUA_RUNTIME[v] is not None:
-                    row[k] = LUA_RUNTIME[v](row)
-                else:
-                    if k not in row:
-                        row[k] = v
-        #2pass
-        for k, v in monster_const[1].items():
-            if (k!="ClassID"and k!="Lv") :
-                if v in LUA_RUNTIME and LUA_RUNTIME[v] is not None:
-                    row[k] = LUA_RUNTIME[v](row)
-                else:
-                    if  k not in row:
-                        row[k]=v
+            # Inject Constants (Twice)
+            for _ in range(2):
+                for k, v in monster_constants[1].items():
+                    if (k != 'ClassID' and k != 'Lv'):
+                        if v in LUA_RUNTIME and LUA_RUNTIME[v] is not None:
+                            row[k] = LUA_RUNTIME[v](row)
+                        else:
+                            if k not in row:
+                                row[k] = v
 
+            monster = {}
 
-        # row['CON'] = LUA_RUNTIME['SCR_Get_MON_CON'](row)
-        # row['DEX'] = LUA_RUNTIME['SCR_Get_MON_DEX'](row)
-        # row['INT'] = LUA_RUNTIME['SCR_Get_MON_INT'](row)
-        # row['MNA'] = LUA_RUNTIME['SCR_Get_MON_MNA'](row)
-        # row['STR'] = LUA_RUNTIME['SCR_Get_MON_STR'](row)
+            monster['$ID']         = int(row['ClassID'])
+            monster['$ID_NAME']    = row['ClassName']
+            monster['Description'] = cache.translate(row['Desc'])
+            monster['Name']        = cache.translate(row['Name'])
+            monster['Type']        = row['GroupName']
+            monster['Icon']    = cache.parse_entity_icon(row['Icon']) if row['Icon'] != 'ui_CreateMonster' else None
+            monster['SkillType']   = row['SkillType']
 
-        obj = {}
-        obj['$ID'] = int(row['ClassID'])
-        obj['$ID_NAME'] = row['ClassName']
-        obj['Description'] = constants.translate(row['Desc'])
-        obj['Icon'] = constants.parse_entity_icon(row['Icon']) if row['Icon'] != 'ui_CreateMonster' else None
-        obj['Name'] = constants.translate(row['Name'])
-        obj['Type'] = row['GroupName']
-        obj['SkillType'] = row['SkillType']
-        if obj['Type'] == 'Monster':
-            obj['Armor'] = row['ArmorMaterial'] if row['ArmorMaterial'] != 'Iron' else 'Plate'
-            obj['Element'] = row['Attribute']
-            obj['Level'] = int(row['Lv'])
-            obj['Race'] = TOSMonsterRace.value_of(row['RaceType'])
-            obj['Rank'] = row['MonRank']
-            obj['Size'] = row['Size'] if row['Size'] else None
-            obj['EXP'] = int(LUA_RUNTIME['SCR_GET_MON_EXP'](row)) if obj['Level'] < 999 else 0
-            obj['EXPClass'] = int(LUA_RUNTIME['SCR_GET_MON_JOBEXP'](row)) if obj['Level'] < 999 else 0
-            obj['Stat_CON'] = int(row['CON'])
-            obj['Stat_DEX'] = int(row['DEX'])
-            obj['Stat_INT'] = int(row['INT'])
-            obj['Stat_SPR'] = int(row['MNA'])
-            obj['Stat_STR'] = int(row['STR'])
-            obj['Stat_HP'] = int(row['MHP'])
-            obj['Stat_SP'] = int(row['MSP'])
-            obj['Stat_ATTACK_MAGICAL_MAX'] =int(row['MAXMATK'])
-            obj['Stat_ATTACK_MAGICAL_MIN'] =int(row['MINMATK'])
-            obj['Stat_ATTACK_PHYSICAL_MAX'] = int(row['MAXPATK'])
-            obj['Stat_ATTACK_PHYSICAL_MIN'] = int(row['MINPATK'])
-            obj['Stat_DEFENSE_MAGICAL'] = int(row['MDEF'])
-            obj['Stat_DEFENSE_PHYSICAL'] = int(row['DEF'])
-            obj['Stat_Accuracy'] = int(LUA_RUNTIME['SCR_Get_MON_HR'](row))
-            obj['Stat_Evasion'] = int(LUA_RUNTIME['SCR_Get_MON_DR'](row))
-            obj['Stat_CriticalDamage'] = int(LUA_RUNTIME['SCR_Get_MON_CRTATK'](row))
-            obj['Stat_CriticalDefense'] = int(LUA_RUNTIME['SCR_Get_MON_CRTDR'](row))
-            obj['Stat_CriticalRate'] = int(LUA_RUNTIME['SCR_Get_MON_CRTHR'](row))
-            obj['Stat_BlockRate'] = int(LUA_RUNTIME['SCR_Get_MON_BLK'](row))
-            obj['Stat_BlockPenetration'] = int(LUA_RUNTIME['SCR_Get_MON_BLK_BREAK'](row))
-            
-            obj['Link_Items'] = []
-            obj['Link_Maps'] = []
-            constants.data['monsters'][obj['$ID']] = obj
-            constants.data['monsters_by_name'][obj['$ID_NAME']] = obj
-        elif obj['Type'] == 'NPC':
-            obj['Icon'] = constants.parse_entity_icon(row['MinimapIcon']) if row['MinimapIcon'] else obj['Icon']
+            if monster['Type'] == 'NPC':
+                monster['Icon'] = cache.parse_entity_icon(row['MinimapIcon']) if row['MinimapIcon'] else monster['Icon']
 
-            constants.data['npcs'][obj['$ID']] = obj
-            constants.data['npcs_by_name'][obj['$ID_NAME']] = obj
-    ies_file.close()
-    return constants
+                cache.data['npcs'][monster['$ID_NAME']] = monster
 
+            else:
+                monster['Race']    = TOSMonsterRace.value_of(row['RaceType'])
+                monster['Element'] = row['Attribute']
+                monster['Armor']   = row['ArmorMaterial'] if row['ArmorMaterial'] != 'Iron' else 'Plate'
+                monster['Size']    = row['Size'] if row['Size'] else None
 
-def parse_monsters_statbase(file_name, destination,constants):
-    logging.debug('Parsing %s...', file_name)
+                monster['Rank']     = row['MonRank']
+                monster['Level']    = int(row['Lv'])
+                monster['EXP']      = int(LUA_RUNTIME['SCR_GET_MON_EXP'](row))    if monster['Level'] < 999 else 0
+                monster['EXPClass'] = int(LUA_RUNTIME['SCR_GET_MON_JOBEXP'](row)) if monster['Level'] < 999 else 0
 
-    ies_path = join(constants.PATH_INPUT_DATA, "ies.ipf", file_name)
-    ies_file = open(ies_path, 'r', encoding = 'utf-8')
-    ies_reader = csv.DictReader(ies_file, delimiter=',', quotechar='"')
+                monster['Stat_CON'] = int(row['CON'])
+                monster['Stat_DEX'] = int(row['DEX'])
+                monster['Stat_INT'] = int(row['INT'])
+                monster['Stat_SPR'] = int(row['MNA'])
+                monster['Stat_STR'] = int(row['STR'])
+
+                monster['Stat_HP'] = int(row['MHP'])
+                monster['Stat_SP'] = int(row['MSP'])
+
+                monster['Stat_ATTACK_PHYSICAL_MIN'] = int(row['MINPATK'])
+                monster['Stat_ATTACK_PHYSICAL_MAX'] = int(row['MAXPATK'])
+                monster['Stat_ATTACK_MAGICAL_MIN']  = int(row['MINMATK'])
+                monster['Stat_ATTACK_MAGICAL_MAX']  = int(row['MAXMATK'])
+                monster['Stat_CriticalDamage']      = int(LUA_RUNTIME['SCR_Get_MON_CRTATK'](row))
+
+                monster['Stat_DEFENSE_PHYSICAL'] = int(row['DEF'])
+                monster['Stat_DEFENSE_MAGICAL']  = int(row['MDEF'])
+
+                monster['Stat_CriticalRate']     = int(LUA_RUNTIME['SCR_Get_MON_CRTHR'](row))
+                monster['Stat_CriticalDefense']  = int(LUA_RUNTIME['SCR_Get_MON_CRTDR'](row))
+                monster['Stat_Accuracy']         = int(LUA_RUNTIME['SCR_Get_MON_HR'](row))
+                monster['Stat_Evasion']          = int(LUA_RUNTIME['SCR_Get_MON_DR'](row))
+                monster['Stat_BlockPenetration'] = int(LUA_RUNTIME['SCR_Get_MON_BLK_BREAK'](row))
+                monster['Stat_BlockRate']        = int(LUA_RUNTIME['SCR_Get_MON_BLK'](row))
+                
+                monster['Link_Items'] = []
+                monster['Link_Maps']  = []
+
+                cache.data['monsters'][monster['$ID_NAME']] = monster
+
+def parse_skills(cache: Cache):
+    LOG.info('Parsing Monster Skills from skill_mon.ies ...')
+
+    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'skill_mon.ies')
+
+    if not exists(ies_path):
+        LOG.warning('File not found: skill_mon.ies')
+        return
+
+    with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
+        for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
+            skill = {}
+
+            skill['$ID']       = row['ClassID']
+            skill['$ID_NAME']  = row['ClassName']
+            skill['Name']      = cache.translate(row['Name'])
+            skill['Attribute'] = row['Attribute']
+            skill['SFR']       = row['SklFactor']     if 'SklFactor' in row else 0
+            skill['HitCount']  = row['SklHitCount']
+            skill['AAR']       = row['SklSR']
+            skill['Cooldown']  = row['BasicCoolDown'] if 'BasicCoolDown' in row else 0
+
+            if skill['$ID_NAME'] in cache.data['xml_skills']:
+                skill['TargetBuffs'] = cache.data['xml_skills'][skill['$ID_NAME']]['TargetBuffs']
+
+            type_skill = re.match('(?:Mon_)?(\S+)(?:_(?:Attack|Skill)_?\d?)', skill['$ID_NAME'])
+
+            if type_skill is None:
+                LOG.warning('%s does not share a naming pattern and cannot be matched through Skill Type', skill['$ID_NAME'])
+                type_skill = skill['$ID_NAME']
+            else:
+                type_skill = type_skill.group(1)
+
+            if type_skill not in cache.data['monster_skills']:
+                cache.data['monster_skills'][type_skill] = []
+
+            cache.data['monster_skills'][type_skill].append(skill)
+
+def parse_statbase(cache: Cache, file_name: str, destination: dict):
+    LOG.info('Parsing Stat Base from %s ...', file_name)
+
+    ies_path   = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
+    ies_file   = open(ies_path, 'r', encoding = 'utf-8')
+    ies_reader = csv.DictReader(ies_file, delimiter = ',', quotechar = '"')
 
     for row in ies_reader:
         destination[int(row['ClassID'])] = row
 
     ies_file.close()
-
-
-def parse_links(c=None):
-    if (c==None):
-        c = Cache()
-        c.build()
-    c.data['item_monster'] = []
-    parse_links_items(c)
-
-
-def parse_links_items(constants):
-    logging.debug('Parsing Monsters <> Items...')
-
-    for monster in constants.data['monsters'].values():
-        #mongen_dir = os.listdir(os.path.join(constants.PATH_INPUT_DATA, 'ies_drop.ipf'))
-        ies_drop = os.path.join("..", "itos_unpack", 'ies_drop.ipf')
-        mongen_dir = os.listdir(ies_drop)
-        path_insensitive= {}
-        for item in mongen_dir:
-            path_insensitive[item.lower()] = item
-            
-            
-        ies_file = monster['$ID_NAME'] + '.ies'
-        try:
-            ies_file = path_insensitive[ies_file.lower()]
-        except:
-            #logging.warning("file not found {}".format(ies_file))
-            pass
-        
-        ies_path = os.path.join(ies_drop, ies_file)
-
-        try:
-            with open(ies_path, 'r', encoding="utf-8") as ies_file:
-                for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
-                    if not row['ItemClassName'] or row['ItemClassName'] not in constants.data['items']:
-                        continue
-
-                    item = constants.data['items'][row['ItemClassName']]
-                    item_link = item['$ID']
-                    monster_link = monster['$ID']
-                    constants.data['item_monster'].append({
-                        'Chance'        : int(row['DropRatio']) / 100.0,
-                        'Item'          : item_link,
-                        'Monster'       : monster_link,
-                        'Quantity_MAX'  : int(row['Money_Max']),
-                        'Quantity_MIN'  : int(row['Money_Min']),
-                    })
-
-        except IOError:
-            continue
-
-
-def parse_skill_mon(constants):
-    xml_skills = constants.data['xml_skills']
-    logging.debug('Parsing Monsters <> Skills...')
-    ies_file = 'skill_mon.ies'
-    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', ies_file)
-    if (not exists(ies_path)):
-        log.warning("file not found {}".format(ies_path))
-        return False
-    
-    with open(ies_path, 'r', encoding="utf-8") as ies_file:
-        rows = []
-        skill_mon = {}
-        for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
-            rows.append(row)
-            skill               = {}
-            skill['$ID']        = row['ClassID']
-            skill['$ID_NAME']   = row['ClassName']
-            skill['CD']         = row['BasicCoolDown'] if 'BasicCoolDown' in row else 0
-            skill['Name']       = constants.translate(row['Name'])
-            skill['SFR']        = row['SklFactor'] if 'SklFactor' in row else 0
-            skill['Attribute']  = row['Attribute']
-            skill['HitCount']   = row['SklHitCount']
-            skill['AAR']        = row['SklSR']
-            mon                 = row['ClassName'].split('_')
-            mon_s               = ''
-            skill['TargetBuffs']= []
-            skill['SelfBuffs']  = []
-
-            if len(mon)>=2 and (mon[-2].lower() == "skill" or mon[-2].lower() =='attack'):
-                mon = mon[:-1]
-            for i in mon[1:-1]:
-                mon_s += i+"_"
-            mon_s = mon_s[:-1]
-        
-            skill['Monster']    = constants.get_monster(mon_s)
-            
-            
-            
-            if row['ClassName'] in xml_skills:
-                data                    =xml_skills[row['ClassName']]
-                skill['TargetBuffs']    = data['TargetBuffs']
-            
-            if (skill['Monster']  == []):
-                logging.debug("monster {} (for skill) not found ({})".format(mon_s,row['ClassName'] ))
-                continue
-            skill_mon[row['ClassID']]  = skill
-
-
-        constants.data['skill_mon'] = skill_mon         
-        

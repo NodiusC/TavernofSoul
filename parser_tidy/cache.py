@@ -1,27 +1,18 @@
 # -*- coding: utf-8 -*-
 
-'''
+"""
 Created on Mon Sep 20 09:20:20 2021
 
 @author: Temperantia
 
 Cache of all parse for exportation as JSON files to be inserted into MySQL
-'''
+"""
 
 import json
 import logging
 import os
 
 from os.path import exists, join
-
-def is_ascii(item):
-    try:
-        item.decode('ascii')
-
-    except UnicodeDecodeError:
-        return False
-    
-    return True
 
 class TOSParseCache():
     REGION                        = None
@@ -34,7 +25,12 @@ class TOSParseCache():
     PATH_INPUT_DATA               = None
     PATH_INPUT_DATA_LUA           = None
     TRANSLATION_PATH              = None
-    CONVERTER_PATH                = join("XAC", 'XAC2DAE.jar')
+    CONVERTER_PATH                = join('XAC', 'XAC2DAE.jar')
+
+    REGIONS = {
+        'itos': 'English',
+        'jtos': 'Japanese'
+    }
     
     EQUIPMENT_IES = [
         'item_equip.ies',
@@ -68,59 +64,69 @@ class TOSParseCache():
         'item_HiddenAbility.ies',
         'item_premium.ies',
         'item_event.ies', 
-        'item_quest.ies',
+        'item_Quest.ies',
         'item_Reputation.ies',
         'item_PersonalHousing.ies',
         'item_GuildHousing.ies',
         'item_colorspray.ies',
         'recipe.ies',
     ]
+
+    MONSTER_IES = [
+        'monster.ies',
+        'Monster_solo_dungeon.ies',
+        'Monster_BountyHunt.ies',
+        'monster_guild.ies',
+        'monster_event.ies',
+        'monster_npc.ies',
+        'monster_pet.ies',
+        'monster_pcsummon.ies',
+        'monster_mgame.ies'
+    ]
     
     data_build = ['assets_icons', 'maps', 'maps_by_name', 'maps_by_position']
         
     data = {
-       'dictionary'            : {},
-       'items'                 : {},
-       'cube_contents'         : {},
-       'equipment_sets'        : {},
-       'equipment_sets_by_name': {},
-       'assets_icons'          : {},
-       'jobs'                  : {},
-       'jobs_by_name'          : {},
-       'attributes'            : {},
-       'attributes_by_name'    : {},
-       'skills'                : {},
-       'skills_by_name'        : {},
-       'monsters'              : {},
-       'monsters_by_name'      : {},
-       'item_monster'          : [],
-       'npcs'                  : {},
-       'npcs_by_name'          : {},
-       'maps'                  : {},
-       'maps_by_name'          : {},
-       'maps_by_position'      : {},
-       'map_item'              : [],
-       'map_npc'               : [],
-       'map_item_spawn'        : [],
-       'skill_mon'             : {},
-       'grade_ratios'          : {},
-       'buff'                  : {},
-       'achievements'          : {},
-       'charxp'                : {},
-       'petxp'                 : {},
-       'assisterxp'            : {},
-       'goddess_reinf_mat'     : {},
-       'goddess_reinf'         : {}
+       'dictionary'        : {},
+       'assets_icons'      : {},
+       'items'             : {},
+       'cube_contents'     : {},
+       'equipment_sets'    : {},
+       'jobs'              : {},
+       'jobs_by_name'      : {},
+       'attributes'        : {},
+       'attributes_by_name': {},
+       'skills'            : {},
+       'monsters'          : {},
+       'monster_skills'    : {},
+       'monster_drops'     : [],
+       'npcs'              : {},
+       'maps'              : {},
+       'maps_by_name'      : {},
+       'maps_by_position'  : {},
+       'map_item'          : [],
+       'map_npc'           : [],
+       'map_item_spawn'    : [],
+       'grade_ratios'      : {},
+       'buff'              : {},
+       'achievements'      : {},
+       'charxp'            : {},
+       'petxp'             : {},
+       'assisterxp'        : {},
+       'goddess_reinf_mat' : {},
+       'goddess_reinf'     : {}
     }
     
-    def build(self, region):
+    def build(self, region: str):
         self.REGION                          = region.lower()
-        self.BASE_PATH_INPUT                 = join("..", "TavernofSoul", "JSON_{}".format(self.REGION))
-        self.BASE_PATH_OUTPUT                = join("..", "TavernofSoul", "JSON_{}".format(self.REGION))
-        self.STATIC_ROOT                     = join("..", "TavernofSoul", "staticfiles_itos")
-        self.PATH_BUILD_ASSETS_ICONS         = join(self.STATIC_ROOT, "icons")
-        self.PATH_BUILD_ASSETS_IMAGES_MAPS   = join(self.STATIC_ROOT, "maps")
-        self.PATH_BUILD_ASSETS_MODELS        = join(self.STATIC_ROOT, "models")
+
+        self.BASE_PATH_INPUT                 = join('..', 'TavernofSoul', 'JSON_%s' % (self.REGION))
+        self.BASE_PATH_OUTPUT                = join('..', 'TavernofSoul', 'JSON_%s' % (self.REGION))
+        self.STATIC_ROOT                     = join('..', 'TavernofSoul', 'staticfiles_itos')
+
+        self.PATH_BUILD_ASSETS_ICONS         = join(self.STATIC_ROOT, 'icons')
+        self.PATH_BUILD_ASSETS_IMAGES_MAPS   = join(self.STATIC_ROOT, 'maps')
+        self.PATH_BUILD_ASSETS_MODELS        = join(self.STATIC_ROOT, 'models')
         
         try:
             os.mkdir(self.PATH_BUILD_ASSETS_ICONS) 
@@ -137,77 +143,42 @@ class TOSParseCache():
         except:
             pass
         
-        self.PATH_INPUT_DATA                 = join('..', '{}_unpack'.format(self.REGION))
-        self.PATH_INPUT_DATA_LUA             = join('..', '{}_unpack'.format(self.REGION))
+        self.PATH_INPUT_DATA     = join('..', '%s_unpack' % (self.REGION))
+        self.PATH_INPUT_DATA_LUA = join('..', '%s_unpack' % (self.REGION))
 
-        if self.REGION == 'itos':
-            self.TRANSLATION_PATH                = join ("..","Translation", 'English')
-        elif self.REGION == 'jtos':
-            self.TRANSLATION_PATH                = join ("..","Translation", 'Japanese')
-        else:
-            self.TRANSLATION_PATH                = "."
+        self.TRANSLATION_PATH    = join('..', 'Translation', self.REGIONS[self.REGION]) if self.REGION in self.REGIONS else '.'
         
         for i in self.data_build:
-            self.data[i] = self.import_json(join(self.BASE_PATH_INPUT, "%s.json"%(i)))
+            self.data[i] = self.import_json(join(self.BASE_PATH_INPUT, '%s.json' % (i)))
     
-    def export(self, file):
-        self.print_json(self.data[file], "{}.json".format(file))
+    def export(self, file_name: str):
+        self.print_json(self.data[file_name], '%s.json' % (file_name))
         
     def export_all(self):
-        for i in self.data:
-            self.export(i)
+        for file_name in self.data:
+            self.export(file_name)
     
-    def get_monster(self, skill):
-        returned_mon_id = []
-
-        for mon in self.data['monsters']:
-            mon = self.data['monsters'][mon]
-
-            if 'SkillType' not in mon:
-                logging.warning("skill type not in mon {}".format(mon['$ID']))
-                continue
-
-            if mon['SkillType'].lower() == skill.lower():
-                returned_mon_id.append(mon['$ID'])
-
-        if returned_mon_id == []:
-            skill = 'mon_'+skill
-
-        for mon in self.data['monsters']:
-            mon = self.data['monsters'][mon]
-
-            if 'SkillType' not in mon:
-                logging.warning("skill type not in mon {}".format(mon['$ID']))
-                continue
-
-            if mon['SkillType'].lower() == skill.lower():
-                returned_mon_id.append(mon['$ID'])    
-
-        return returned_mon_id
-    
-    def get_npc(self, name):
-        if name in self.data['monsters_by_name']:
-            return self.data['monsters_by_name'][name], 'mon'
-        elif name in self.data['npcs_by_name']:
-            return self.data['npcs_by_name'][name], 'npc'
+    def get_npc(self, name: str):
+        if name in self.data['monsters']:
+            return self.data['monsters'][name], 'mon'
+        elif name in self.data['npcs']:
+            return self.data['npcs'][name], 'npc'
         else:
             return None
         
-    def import_json(file):
-        if not exists(file):
-            logging.warn("Not Exit: {}".format(file))
+    def import_json(self, file_name):
+        if not exists(file_name):
+            logging.warning('File not found: %s', file_name)
             return {}
 
         try:
-            with open(file, "r") as f:
-                data = json.load(f)
+            with open(file_name, 'r') as file:
+                return json.load(file)
         except:
-            logging.error("error in importing file {}".format(file))
+            logging.warning('An error occurred while importing file \'%s\'', file_name)
             return {}
-        
-        return data
     
-    def parse_entity_icon(self,icon):
+    def parse_entity_icon(self, icon: str):
         if icon == '':
             return None
         
@@ -227,24 +198,22 @@ class TOSParseCache():
         if icon_found is not None:
             return self.data['assets_icons'][icon_found]
         else:
-            logging.warning('The icon for \'%s\' is missing', icon) # There's nothing we can do about this
+            logging.warning('The icon for \'%s\' is missing', icon)
             return icon
     
-    def print_json(self, item, file):
-        file_input = join(self.BASE_PATH_INPUT, file)
-
-        with open(file_input, "w") as f:
-            json.dump(item, f)
+    def print_json(self, obj, file_name: str):
+        with open(join(self.BASE_PATH_INPUT, file_name), 'w') as file:
+            json.dump(obj, file)
     
-    def reverse_dictionary(self, dicts):
+    def reverse_dictionary(self, dictionary: dict):
         a = {}
 
-        for i in dicts.keys():
-            a [dicts[i]] =  i
+        for i in dictionary.keys():
+            a [dictionary[i]] =  i
         
         return a
     
-    def translate(self, key):
+    def translate(self, key: str):
         if self.TRANSLATION_PATH == None:
             return self.data['dictionary'][key]
 
@@ -331,7 +300,7 @@ class TOSAttackType():
     MAGIC          = 'Magic'
     TRUE           = 'True Damage'
     BUFF           = 'Buff'
-    RESPONSIVE     = "Responsive"
+    RESPONSIVE     = 'Responsive'
     UNKNOWN        = ''
 
     @staticmethod
@@ -349,7 +318,7 @@ class TOSAttackType():
             TOSAttackType.MAGIC         : 'Magic',
             TOSAttackType.TRUE          : 'True Damage',
             TOSAttackType.BUFF          : 'Buff',
-            TOSAttackType.RESPONSIVE    : "Responsive",
+            TOSAttackType.RESPONSIVE    : 'Responsive',
             TOSAttackType.UNKNOWN       : ''
         
         }[value]

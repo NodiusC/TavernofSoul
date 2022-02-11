@@ -45,7 +45,6 @@ def parse(c = None):
         c.build('ktest')
         luautil.init(c)
     c.skills={}
-    c.skills_by_name={}
     parse_skills(is_rebuild,c)
     parse_skills_overheats(c)
     parse_skills_simony(c)
@@ -175,8 +174,7 @@ def parse_skills(is_rebuild, constants):
                 #obj['SP'] = parse_skills_lua_source(row['SpendSP'])
                 #obj['SP'] = parse_skills_lua_source_to_javascript(row, obj['SP'])
 
-            constants.data['skills'][obj['$ID']] = obj
-            constants.data['skills_by_name'][obj['$ID_NAME']] = obj
+            constants.data['skills'][obj['$ID_NAME']] = obj
 
     # HotFix: make sure all skills have the same Effect columns (2/2)
     for skill in constants.data['skills'].values():
@@ -347,10 +345,10 @@ def parse_links_gems(constants):
         for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
             skill = row['ClassName'][len('Gem_'):]
 
-            if skill not in constants.data['skills_by_name']:
+            if skill not in constants.data['skills']:
                 continue
 
-            skill = constants.data['skills_by_name'][skill]
+            skill = constants.data['skills'][skill]
             skill['Link_Gem'] = constants.get_gem_link(row['ClassName'])
 
 
@@ -363,10 +361,10 @@ def parse_links_jobs(constants):
         for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
             z.append(row)
             # Ignore discarded skills
-            if row['SkillName'] not in constants.data['skills_by_name']:
+            if row['SkillName'] not in constants.data['skills']:
                 continue
 
-            skill = constants.data['skills_by_name'][row['SkillName']]
+            skill = constants.data['skills'][row['SkillName']]
             skill['MaxLevel'] = int(row['MaxLevel'])
             skill['LevelPerGrade'] = int(row['LevelPerGrade']) if 'LevelPerGrade' in row else 0
             skill['UnlockClassLevel'] = int(row['UnlockClassLevel']) if 'UnlockClassLevel' in row else 0
@@ -374,8 +372,7 @@ def parse_links_jobs(constants):
 
             job = '_'.join(row['ClassName'].split('_')[:2])       
             skill['Link_Job'] = constants.data['jobs_by_name'][job]['$ID']
-            constants.data['skills_by_name'][row['SkillName']] = skill
-            constants.data['skills'][skill['$ID']] = skill
+            constants.data['skills'][skill['$ID_NAME']] = skill
     return constants
 
 
@@ -388,8 +385,7 @@ def parse_clean(constants):
 
     # Remove all inactive skills
     for skill in skills_to_remove:
-        del constants.data['skills'][str(skill['$ID'])]
-        del constants.data['skills_by_name'][skill['$ID_NAME']]
+        del constants.data['skills'][str(skill['$ID_NAME'])]
 
         skill_id = skill['$ID']
 

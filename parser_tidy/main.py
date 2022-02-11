@@ -53,7 +53,7 @@ if __name__ == '__main__':
         logging.warning('Missing Argument: Region')
         quit()
     
-    c = Cache()
+    cache = Cache()
 
     current_version = revision_txt_read('parser_version_{}.txt'.format(region.lower()))
     
@@ -63,50 +63,48 @@ if __name__ == '__main__':
         logging.warning('IPF is already update to date')
         quit()
         
-    c.build(region)
+    cache.build(region)
 
-    parse_xac.parse_xac(c)
+    parse_xac.parse_xac(cache)
 
-    luautil.init(c)
+    luautil.init(cache)
 
     no_translation = ['ktos', 'ktest']
 
     if (region not in no_translation):
-        translation.makeDictionary(c)
+        translation.makeDictionary(cache)
     
-    asset.parse(c)
-    jobs.parse(c)
-    skill_bytool.parse(c)
-    skills.parse(c)
-    attributes.parse(c)
-    attributes.parse_links(c)   
-    attributes.parse_clean(c)
-    skills.parse_clean(c)
-    buff.parse(c)
-    items.parse(c)
+    asset.parse(cache)
+    jobs.parse(cache)
+    skill_bytool.parse(cache)
+    skills.parse(cache)
+    attributes.parse(cache)
+    attributes.parse_links(cache)   
+    attributes.parse_clean(cache)
+    skills.parse_clean(cache)
+    buff.parse(cache)
+    items.parse(cache)
 
     if (region not in no_translation):
-        vaivora.parse(c)
-        vaivora.parse_lv4(c)
+        vaivora.parse(cache)
+        vaivora.parse_lv4(cache)
     
-    insert_static(c)
+    insert_static(cache)
     
-    items.parse_goddess_equipment(c)
+    items.parse_goddess_equipment(cache)
     
-    monsters.parse(c)
-    monsters.parse_links(c)
-    monsters.parse_skill_mon(c)
+    monsters.parse(cache)
     
-    maps.parse(c)
-    maps.parse_maps_images(c) #run map_image.py with py2.7 before running this
-    maps.parse_links(c)
-    misc.parse_achievements(c)
+    maps.parse(cache)
+    maps.parse_maps_images(cache) #run map_image.py with py2.7 before running this
+    maps.parse_links(cache)
+    misc.parse_achievements(cache)
 
-    c.export_all()
+    cache.export_all()
 
     revision_txt_write('parser_version_{}.txt'.format(region.lower()), version)
 
     v = {'version' : "{}_001001.ipf".format(version)}
     
-    with open(join(c.BASE_PATH_OUTPUT, 'version.json'), "w") as f:
+    with open(join(cache.BASE_PATH_OUTPUT, 'version.json'), "w") as f:
         json.dump(v,f)
