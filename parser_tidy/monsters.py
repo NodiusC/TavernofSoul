@@ -1,16 +1,20 @@
 # -*- coding: utf-8 -*-
 """
+IES Parser for Monsters.
+
 Created on Sun Oct  3 20:11:07 2021
 
-@author: Intel
+@author: Temperantia
+@credit: Temperantia, Nodius
 """
 
 import csv
 import logging
-import luautil
 import re
-
 from os.path import exists, join
+
+import constants.ies as IES
+import luautil
 from cache import TOSParseCache as Cache
 
 LOG = logging.getLogger('Parse.Monsters')
@@ -62,7 +66,7 @@ def parse(cache: Cache = None):
 
     parse_skills(cache)
 
-    for file in cache.MONSTER_IES:
+    for file in IES.MONSTER:
         parse_monsters(cache, file)
 
     parse_drops(cache)
@@ -115,13 +119,13 @@ def parse_monsters(cache: Cache, file_name: str):
 
             # Inject Constants (Twice)
             for _ in range(2):
-                for k, v in monster_constants[1].items():
-                    if (k != 'ClassID' and k != 'Lv'):
-                        if v in LUA_RUNTIME and LUA_RUNTIME[v] is not None:
-                            row[k] = LUA_RUNTIME[v](row)
+                for key, value in monster_constants[1].items():
+                    if (key != 'ClassID' and key != 'Lv'):
+                        if value in LUA_RUNTIME and LUA_RUNTIME[value] is not None:
+                            row[key] = LUA_RUNTIME[value](row)
                         else:
-                            if k not in row:
-                                row[k] = v
+                            if key not in row:
+                                row[key] = value
 
             monster = {}
 

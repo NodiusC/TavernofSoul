@@ -1,4 +1,11 @@
-COLLECTION_STATS = {
+"""
+Created on Sat Feb 12 20:24:52 2022
+
+@author: Nodius
+@credit: Nodius, Temperantia
+"""
+
+COLLECTION = {
     'CON_BM': 'CON',
     'DEX_BM': 'DEX',
     'INT_BM': 'INT',
@@ -33,7 +40,7 @@ COLLECTION_STATS = {
     'MaxAccountWarehouseCount': 'STORAGE'
 }
 
-GEM_STATS = {
+GEM = {
     # Bonus
     'PATK'         : 'PATK',
     'CRTATK'       : 'CRTPATK',

@@ -1,51 +1,52 @@
 # -*- coding: utf-8 -*-
 """
+The main script for IES parsers.
+
 Created on Thu Sep 23 11:17:20 2021
 
 @author: Temperantia
+@credit: Temperantia, Nodius
 """
+
+import csv
+import json
+import logging
+import sys
+from os.path import join
 
 import asset
 import attributes
 import buff
+import effects
 import items
+import items_static
 import jobs
-import json
-import logging
 import luautil
 import maps
 import misc
 import monsters
-import os
 import parse_xac
+import sets
 import skills
-import effects
-import sys
 import translation
 import vaivora
-
 from cache import TOSParseCache as Cache
-from items_static import insert_static
-from os.path import join
 
-def revision_txt_write(revision_txt, revision):
-    revision = str(revision)
-    
-    with open(revision_txt, 'w') as file:
-        file.write(revision)
+SUPPORTED_REGIONS = ['itos', 'ktos', 'ktest', 'jtos', 'twtos']
 
-def revision_txt_read(revision_txt):
-    if os.path.isfile(revision_txt):
-        with open(revision_txt, 'r') as file:
-            return file.readline()
-    else:
-        return 0
+def print_version(file_name: str, version: dict):
+    with open(file_name, 'w') as file:
+        csv.writer(file).writerows([[region, version[region]] for region in version])
+
+def read_version(file_name: str):
+    with open(file_name, 'r') as file:
+        return {row[0]: row[1] for row in csv.reader(file)}
 
 if __name__ == '__main__':
     try:
         region = sys.argv[1].lower()
 
-        if region not in ['itos', 'ktos', 'ktest', 'jtos']:
+        if region not in SUPPORTED_REGIONS:
             logging.warning('Region has not been supported yet')
             quit()
         
@@ -55,12 +56,11 @@ if __name__ == '__main__':
     
     cache = Cache()
 
-    current_version = revision_txt_read('parser_version_{}.txt'.format(region.lower()))
-    
-    version = revision_txt_read(join('..', 'downloader', 'revision_{}.txt'.format(region)))
+    current = read_version('parser_version.csv')
+    latest  = read_version(join('..', 'downloader', 'revision.csv'))
 
-    if version == current_version and '-f' not in sys.argv:
-        logging.warning('IPF is already update to date')
+    if latest[region] == current[region] and '-f' not in sys.argv:
+        logging.warning('Parse is already update to date')
         quit()
         
     cache.build(region)
@@ -71,25 +71,44 @@ if __name__ == '__main__':
 
     no_translation = ['ktos', 'ktest']
 
-    if (region not in no_translation):
+    if region not in no_translation:
         translation.makeDictionary(cache)
     
     asset.parse(cache)
+
     jobs.parse(cache)
+
     effects.parse(cache)
-    skills.parse(cache)
+
+    skills.parse_skill_tree (cache) # Parse Class Skills
+    sets  .parse_legend_sets(cache) # Parse Legend Sets and Skills
+    items .parse_cosplay    (cache) # Parse Costume Skills
+    skills.parse_skills     (cache) # Parse Cached Skills
+
     attributes.parse(cache)
     attributes.parse_links(cache)   
     attributes.parse_clean(cache)
-    skills.parse_clean(cache)
-    buff.parse(cache)
-    items.parse(cache)
 
-    if (region not in no_translation):
+    buff.parse(cache)
+
+    items.parse_items                (cache) # Parse Items
+    items.parse_grade_ratios         (cache) # Parse Grade Ratios
+    items.parse_goddess_reinforcement(cache) # Parse Goddess Grade Reinforcements
+    items.parse_equipment            (cache) # Parse Equipment
+    items.parse_gems                 (cache) # Parse Gems
+    items.parse_cubes                (cache) # Parse Cubes
+    items.parse_collections          (cache) # Parse Collections
+    items.parse_recipes              (cache) # Parse Recipes
+    items.parse_books                (cache) # Parse Books
+    items.parse_card_battle          (cache) # Parse "Card Battle" (?)
+
+    sets.parse_equipment_sets(cache) # Parse Equipment Sets
+
+    if region not in no_translation:
         vaivora.parse(cache)
         vaivora.parse_lv4(cache)
     
-    insert_static(cache)
+    items_static.insert_static(cache)
     
     items.parse_goddess_equipment(cache)
     
@@ -102,9 +121,9 @@ if __name__ == '__main__':
 
     cache.export_all()
 
-    revision_txt_write('parser_version_{}.txt'.format(region.lower()), version)
+    current[region] = latest[region]
 
-    v = {'version' : "{}_001001.ipf".format(version)}
+    print_version('parser_version.csv', latest)
     
-    with open(join(cache.BASE_PATH_OUTPUT, 'version.json'), "w") as f:
-        json.dump(v,f)
+    with open(join(cache.BASE_PATH_OUTPUT, 'version.json'), 'w') as file:
+        json.dump({'version': "%s_001001.ipf" % (latest)}, file)

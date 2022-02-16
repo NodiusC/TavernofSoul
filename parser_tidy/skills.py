@@ -1,188 +1,151 @@
 # -*- coding: utf-8 -*-
 """
+IES Parser for Skills.
+
 Created on Thu Sep 23 08:55:17 2021
 
-@author: CPPG02619
+@author: Temperantia
+@credit: Temperantia, Nodius
 """
 
 import csv
 import io
 import logging
-import luautil
 import math
 import os
 import re
-
-from cache import TOSParseCache as Cache
-from cache import TOSElement, TOSAttackType
 from os.path import exists, join
+
+from sympy import Integer, jscode, symbols
+
+import constants.damage as Damage
+import constants.ies as IES
+import luautil
+from cache import TOSParseCache as Cache
 
 EFFECT_DEPRECATE = { 'SkillAtkAdd': 'SkillFactor' }
 
 EFFECTS = []
 
-class TOSRequiredStanceCompanion():
-    BOTH = 0
-    NO   = 1
-    SELF = 2
-    YES  = 3
+X = symbols('x') # Skill Level Variable
 
-    @staticmethod
-    def value_of(string):
-        return {
-            'BOTH': TOSRequiredStanceCompanion.BOTH,
-            ''    : TOSRequiredStanceCompanion.NO,
-            'SELF': TOSRequiredStanceCompanion.SELF,
-            'YES' : TOSRequiredStanceCompanion.YES
-        
-        }[string.upper()]
+LOG = logging.getLogger('Parse.Skills')
+LOG.setLevel(logging.INFO)
 
-def parse(c = None):
+def parse(cache: Cache = None):
+    if cache == None:
+        cache = Cache()
+
+        cache.build('ktest')
     
-    is_rebuild = True
-    if c == None:
-        c = Cache()
-        c.build('ktest')
-        luautil.init(c)
-    c.skills={}
-    parse_skills(is_rebuild,c)
-    parse_skills_overheats(c)
-    parse_skills_simony(c)
+    luautil.init(cache)
+    
+    parse_skills_overheats(cache)
+    parse_skills_simony(cache)
     # parse_skills_stances(c)
-    parse_links_jobs(c)
-    parse_skills_script(c)
-    
+    parse_links_jobs(cache)
+    parse_skills_script(cache)
 
+def parse_common(cache: Cache):
+    pass # TODO: Assister and Ride Pet
 
-def parse_skills(is_rebuild, constants):
-    logging.debug('Parsing skills...')
+def parse_relic(cache: Cache):
+    pass # TODO: Relic Release
 
-    LUA_RUNTIME = luautil.LUA_RUNTIME
-    LUA_SOURCE = luautil.LUA_SOURCE
+def parse_skills(cache: Cache):
+    for file_name in IES.SKILL:
+        LOG.info('Parsing Skills from %s ...', file_name)
 
-    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'skill.ies')
-    if(not exists(ies_path)):
-       return
-    rows = []
-    with io.open(ies_path, 'r', encoding = 'utf-8') as ies_file:
-        for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
-            # Ignore 'Common_' skills (e.g. Bokor's Summon abilities)
-            if row['ClassName'].find('Common_') == 0:
-                continue
-            rows.append(row)
-            obj = {}
-            obj['$ID'] = row['ClassID']
-            obj['$ID_NAME'] = row['ClassName']
-            obj['Description'] = constants.translate(row['Caption'])
-            obj['Icon'] = constants.parse_entity_icon(row['Icon'])
-            obj['Name'] = constants.translate(row['Name'])
+        LUA_RUNTIME = luautil.LUA_RUNTIME
 
-            obj['Effect'] = constants.translate(row['Caption2'])
-            obj['Element'] = TOSElement.value_of(row['Attribute'])
-            obj['IsShinobi'] = row['CoolDown'] == 'SCR_GET_SKL_COOLDOWN_BUNSIN' or (row['CoolDown'] and 'Bunshin_Debuff' in LUA_SOURCE[row['CoolDown']])
-            obj['OverHeat'] = {
-                'Value': int(row['SklUseOverHeat']),
-                'Group': row['OverHeatGroup']
-            } if not is_rebuild else int(row['SklUseOverHeat'])  # Re:Build overheat is now simpler to calculate
-            obj['BasicCoolDown'] = int(row['BasicCoolDown'])
-            obj['BasicPoison'] = int(row['BasicPoison'])
-            obj['BasicSP'] = int(math.floor(float(row['BasicSP'])))
-            obj['LvUpSpendPoison'] = int(row['LvUpSpendPoison'])
-            obj['LvUpSpendSp'] = float(row['LvUpSpendSp'])
-            obj['SklAtkAdd'] = float(row['SklAtkAdd'])
-            obj['SklAtkAddByLevel'] = float(row['SklAtkAddByLevel'])
-            obj['SklFactor'] = float(row['SklFactor'])
-            obj['SklFactorByLevel'] = float(row['SklFactorByLevel'])
-            obj['SklSR'] = float(row['SklSR'])
-            obj['SpendItemBaseCount'] = int(row['SpendItemBaseCount'])
-            obj['RequiredStance'] = row['ReqStance']
-            obj['RequiredStanceCompanion'] = row['EnableCompanion']
-            obj['Keyword']  = row['Keyword']
-            obj['CoolDown'] = row['CoolDown']
-            obj['IsEnchanter'] = False
-            obj['IsPardoner'] = False
-            obj['IsRunecaster'] = False
-            obj['MaxLevel'] = -1
-            obj['UnlockClassLevel'] = -1
-            obj['SP'] = None
-            obj['TypeAttack'] = []
-            obj['Link_Attributes'] = []
-            obj['Link_Gem'] = None
-            obj['Link_Job'] = None
-            obj['other'] = []
-            obj['TargetBuffs'] = []
-            if row['ClassName'] in constants.data['skill_effects']:
-                data                    = constants.data['skill_effects'][row['ClassName']]
-                obj['TargetBuffs']      = data['Effects']
+        ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
 
+        if not exists(ies_path):
+            LOG.warning('File not found: %s', file_name)
+            return
 
-            # Parse TypeAttack
-            if row['ValueType'] == 'Buff':
-                obj['TypeAttack'].append(TOSAttackType.BUFF)
-            if row['ClassType'] is not None:
-                obj['TypeAttack'].append(TOSAttackType.value_of(row['ClassType']))
-            if row['AttackType'] is not None:
-                obj['TypeAttack'].append(TOSAttackType.value_of(row['AttackType']))
-
-            obj['TypeAttack'] = list(set(obj['TypeAttack']))
-            obj['TypeAttack'] = [attack for attack in obj['TypeAttack'] if attack is not None and attack != TOSAttackType.UNKNOWN]
-
-            # Add missing Description header
-            if not re.match(r'{#.+}{ol}(\[.+?\]){\/}{\/}{nl}', obj['Description']):
-                header = ['[' + TOSAttackType.to_string(attack) + ']' for attack in obj['TypeAttack']]
-
-                if obj['Element'] != TOSElement.MELEE:
-                    header.append('[' + TOSElement.to_string(obj['Element']) + ']')
-
-
-            # Parse effects
-            for effect in re.findall(r'{(.*?)}', obj['Effect']):
-                if effect in EFFECT_DEPRECATE:
-                    # Hotfix: sometimes IMC changes which effects are used, however they forgot to properly communicate to the translation team.
-                    # This code is responsible for fixing that and warning so the in-game translations can be fixed
-                    logging.warning('[%32s] Deprecated effect [%s] in Effect', obj['$ID_NAME'], effect)
-
-                    effect_deprecate = effect
-                    effect = EFFECT_DEPRECATE[effect]
-
-                    obj['Effect'] = re.sub(r'\b' + re.escape(effect_deprecate) + r'\b', effect, obj['Effect'])
-
-                if effect in row:
-                    key = 'Effect_' + effect
-
-                    # HotFix: make sure all skills have the same Effect columns (1/2)
-                    if key not in EFFECTS:
-                        EFFECTS.append('Effect_' + effect)
-
-                    if row[effect] != 'ZERO':
-                        obj[key] = row[effect]
-
-                    else:
-                        # Hotfix: similar to the hotfix above
-                        logging.warning('[%32s] Deprecated effect [%s] in Effect', obj['$ID_NAME'], effect)
-                        obj[key] = None
-                else:
+        with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
+            for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
+                if row['ClassName'] not in cache.data['skills']:
                     continue
 
-            # Parse formulas
-            if row['CoolDown']:
-                obj['CoolDown'] = row['CoolDown']
-                #obj['CoolDown'] = parse_skills_lua_source(row['CoolDown'])
-                #obj['CoolDown'] = parse_skills_lua_source_to_javascript(row, obj['CoolDown'])
-            if row['SpendSP']:
-                obj['SP'] = row['SpendSP']
-                #obj['SP'] = parse_skills_lua_source(row['SpendSP'])
-                #obj['SP'] = parse_skills_lua_source_to_javascript(row, obj['SP'])
+                skill = cache.data['skills'][row['ClassName']]
 
-            constants.data['skills'][obj['$ID_NAME']] = obj
+                skill['$ID']         = str(row['ClassID'])
+                skill['Name']        = cache.translate(row['Name'])
+                skill['Icon']        = cache.parse_entity_icon(row['Icon'])
+                skill['Description'] = cache.translate(row['Caption'])
+                skill['Details']     = cache.translate(row['Caption2'])
 
-    # HotFix: make sure all skills have the same Effect columns (2/2)
-    for skill in constants.data['skills'].values():
-        for effect in EFFECTS:
-            if effect not in skill:
-                skill[effect] = None
+                skill['TypeDamage']  = Damage.of(row['ClassType'], row['AttackType'], row['Attribute']) if row['ValueType'] == 'Attack' else ['BUFF']
+                skill['AttackSpeed'] = row['AffectedByAttackSpeedRate'] == 'YES'
+                skill['Weapons']     = row['ReqStance']
+                skill['Riding']      = row['EnableCompanion'] in ['YES', 'BOTH']
 
+                skill['ItemCost']     = row['SpendItemBaseCount']
+                skill['BaseSP']       = row['BasicSP']            # HOTFIX: Level 0
+                skill['BaseCooldown'] = row['BasicCoolDown']      # Level 0
 
+                if skill['Type'] == 'CLASS' and row['CoolDown'] != 'SCR_GET_SKL_COOLDOWN':
+                    base_cd = LUA_RUNTIME[row['CoolDown']](row | {'Level': 1})
+                    leveled = LUA_RUNTIME[row['CoolDown']](row | {'Level': 2})
+
+                    # The scaling of cooldown reduction is currently linear across all skill levels
+                    cooldown_f = base_cd * (2 - X) + leveled * (X - 1) # Simplified Linear Interpolation
+                
+                else:
+                    cooldown_f = Integer(skill['BaseCooldown']) # No cooldown reduction based on level if not a class skill
+
+                # HOTFIX: Praise is the only skill with SP cost scaling with skill level
+                spcost_f = skill['BaseSP'] * (1.1 - X  * 0.1) if row['SpendSP'] == 'SCR_GET_SpendSP_Praise' else Integer(skill['BaseSP'])
+
+                skill['SPCost']   = jscode(spcost_f)
+                skill['Cooldown'] = jscode(cooldown_f)
+                skill['Overheat'] = row['SklUseOverHeat']
+                
+                skill['SkillFactor']         = float(row['SklFactor'])
+                skill['SkillFactorPerLevel'] = float(row['SklFactorByLevel'])
+                skill['Target']              = row['Target']
+
+def parse_skill_tree(cache: Cache):
+    LOG.info('Parsing Class Skills from skilltree.ies ...')
+
+    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'skilltree.ies')
+
+    if not exists(ies_path):
+        LOG.warning('File not found: skilltree.ies')
+        return
+    
+    with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
+        for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
+            skill = {}
+
+            skill['$ID_NAME'] = row['SkillName']
+
+            if row['SkillName'].startswith('Common_'):       # Force Attack, Cancel Attack, Release
+                if row['SkillName'] in cache.data['skills']: # Prevent Duplication
+                    continue
+
+                skill['Type'] = 'COMMON'
+
+            else:
+                job = row['ClassName'].rsplit('_', 1)[0]
+
+                if job not in cache.data['jobs']:
+                    LOG.warning('Class Missing: %s', job)
+                    continue
+
+                class_skill = {}
+
+                class_skill['Class']       = job
+                class_skill['UnlockLevel'] = row['UnlockClassLevel']
+                class_skill['MaxLevel']    = row['MaxLevel']
+
+                cache.data['class_skills'][skill['$ID_NAME']] = class_skill
+
+                skill['Type'] = 'CLASS'
+
+            cache.data['skills'][skill['$ID_NAME']] = skill
 
 def parse_skills_overheats( constants):
     logging.debug('Parsing skills overheats...')
@@ -278,7 +241,7 @@ def parse_skills_stances(constants):
                 'Name': 'All'
             })
 
-        if skill['RequiredStanceCompanion'] in [TOSRequiredStanceCompanion.BOTH, TOSRequiredStanceCompanion.YES]:
+        if skill['RequiredStanceCompanion'] in ['BOTH', 'YES']:
             stances_main_weapon.append({
                 'Icon': constants.parse_entity_icon('weapon_companion'),
                 'Name': 'Companion'
@@ -334,22 +297,7 @@ def parse_links(c = None):
     if c == None:
         c = Cache()
         c.build(Cache.iTOS)
-    parse_links_gems(c)
     c = parse_links_jobs(True,c)
-
-def parse_links_gems(constants):
-    logging.debug('Parsing gems for skills...')
-    
-    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'item_gem.ies')
-    with io.open(ies_path, 'r', encoding = 'utf-8') as ies_file:
-        for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
-            skill = row['ClassName'][len('Gem_'):]
-
-            if skill not in constants.data['skills']:
-                continue
-
-            skill = constants.data['skills'][skill]
-            skill['Link_Gem'] = constants.get_gem_link(row['ClassName'])
 
 
 def parse_links_jobs(constants):

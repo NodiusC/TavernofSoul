@@ -6,30 +6,16 @@ Created on Thu Sep 23 08:06:31 2021
 """
 
 import csv
-import iesutil
 import io
 import logging
 import os
 import re
-
-from cache import TOSParseCache as Cache
-from lupa import LuaRuntime, LuaError
 from os.path import join
 
-# HOTFIX: Don't throw errors when LUA is getting an unknown key
-def attr_getter(obj, name):
-    if name in obj:
-        if name in ['Blockable', 'HPCount', 'ReinforceArmor', 'TranscendArmor', 'ReinforceWeapon', 'TranscendWeapon']:
-            return int(obj[name])
-        else:
-            return obj[name]
-    
-    return 0
-
-def attr_setter(obj, name, value):
-    obj[name] = value
-
-lua = LuaRuntime(attribute_handlers = (attr_getter, attr_setter), unpack_returned_tuples = True)
+import constants.ies as IES
+import iesutil
+from cache import TOSParseCache as Cache
+from lupa import LuaRuntime, LuaError
 
 LUA_OVERRIDE = [
     'function GET_ITEM_LEVEL(item) return 0 end',  # We cant emulate this function as geItemTable is undefined
@@ -71,7 +57,6 @@ LUA_OVERRIDE = [
         end                                         
         return true                                            
     end
-    
     ''',
     'function GetZoneName() return nil end',
     'function GetSkillOwner(skill) return skill end',
@@ -80,20 +65,23 @@ LUA_OVERRIDE = [
     'function IsInTOSHeroMap(pc) return true end',
     'function IsPVPField(pc) return 0 end',
     'function IsServerObj(item) return 0 end',
-    """function SCR_GET_SPEND_ITEM_Alchemist_SprinkleHPPotion(pc)
+    '''
+    function SCR_GET_SPEND_ITEM_Alchemist_SprinkleHPPotion(pc)
         return GetClassByType('Item', 641219), 641219 
-    end""",
-    """function SCR_GET_SPEND_ITEM_Alchemist_SprinkleSPPotion(pc)
+    end
+    ''',
+    '''
+    function SCR_GET_SPEND_ITEM_Alchemist_SprinkleSPPotion(pc)
         return GetClassByType('Item', 641233), 641233 
-    end""",
-    ' function GetAbilityAddSpendValue(pc, ClassName, CD) return 0 end',
-    ' function IsRaidField(pc) return 0 end',
-    "function GetMyJobHistoryString(pc) return '' end",
+    end
+    ''',
+    'function GetAbilityAddSpendValue(pc, ClassName, CD) return 0 end',
+    'function IsRaidField(pc) return 0 end',
+    'function GetMyJobHistoryString(pc) return "" end',
     'function GetJobHistoryList(pc) return {} end',
-    "function IS_TOS_HERO_ZONE(pc) return 'NO' end",
-    "function IsJoinColonyWarMap(pc) return 0 end ",
-    "function GetBuffByProp(row,keyword, key) return nil end",
-
+    'function IS_TOS_HERO_ZONE(pc) return "NO" end',
+    'function IsJoinColonyWarMap(pc) return 0 end ',
+    'function GetBuffByProp(row,keyword, key) return nil end',
     '''
     function SCR_STRING_CUT(inputstr, sep)
         if sep == nil then
@@ -106,9 +94,11 @@ LUA_OVERRIDE = [
         return t
     end
     ''',
-    '''function SyncFloor(item)
-        return item
-    end''',
+    # '''
+    # function SyncFloor(item)
+    #     return item
+    # end
+    # ''',
     '''
     function SCR_Get_DEFAULT_MAXPATK(pc, value)
         return 100
@@ -132,7 +122,22 @@ LUA_OVERRIDE = [
 ]
 
 LUA_RUNTIME = None
-LUA_SOURCE = None
+LUA_SOURCE  = None
+
+# HOTFIX: Don't throw errors when LUA is getting an unknown key
+def attr_getter(obj, name):
+    if name in obj:
+        if name in ['Blockable', 'HPCount', 'ReinforceArmor', 'TranscendArmor', 'ReinforceWeapon', 'TranscendWeapon']:
+            return int(obj[name])
+        else:
+            return obj[name]
+    
+    return 0
+
+def attr_setter(obj, name, value):
+    obj[name] = value
+
+LUA = LuaRuntime(attribute_handlers = (attr_getter, attr_setter), unpack_returned_tuples = True)
 
 def init(cache: Cache):
     init_global_constants(cache, 'sharedconst.ies')
@@ -153,10 +158,10 @@ def init_global_constants(cache: Cache, file_name: str):
 
             execute += row['ClassName'] + ' = ' + row['Value'] + '\n'
 
-    lua.execute(execute)
+    LUA.execute(execute)
 
 def init_global_data(cache: Cache):
-    ies_ADD = lua.execute('''
+    ies_ADD = LUA.execute('''
         ies_by_ClassID = {}
         ies_by_ClassName = {}
         
@@ -186,13 +191,13 @@ def init_global_data(cache: Cache):
     ies_ADD('ancient', iesutil.load('Ancient_Info.ies',cache))
     ies_ADD('ancient_info', iesutil.load('Ancient_Info.ies',cache))
 
-    for i in cache.EQUIPMENT_IES:
+    for i in IES.EQUIPMENT:
         try:
             ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', i.lower())
         except:
             continue
 
-        ies_ADD('item', iesutil.load(i,cache))
+        ies_ADD('item', iesutil.load(i, cache))
         
     ies_ADD('increasecost',      iesutil.load('item_IncreaseCost.ies',     cache))
     ies_ADD('item_grade',        iesutil.load('item_grade.ies',            cache))
@@ -206,7 +211,7 @@ def init_global_data(cache: Cache):
     ies_ADD('skillrestrict',     iesutil.load('skill_restrict.ies',        cache))
 
 def init_global_functions():
-    lua.execute('''
+    LUA.execute('''
         app = {
             IsBarrackMode = function() return false end
         }
@@ -417,9 +422,9 @@ def init_runtime(cache: Cache):
                         continue
 
 def destroy():
-    global lua, LUA_OVERRIDE, LUA_RUNTIME, LUA_SOURCE
+    global LUA, LUA_OVERRIDE, LUA_RUNTIME, LUA_SOURCE
 
-    lua          = None
+    LUA          = None
     LUA_OVERRIDE = None
     LUA_RUNTIME  = None
     LUA_SOURCE   = None
@@ -436,13 +441,13 @@ def lua_function_load(function_source):
 
         # Ignore any function that was overridden
         if not any(function_name in s for s in LUA_OVERRIDE):
-            lua.execute(function_execute)
+            LUA.execute(function_execute)
 
             LUA_SOURCE[function_name] = '\n'.join(function_source)
             LUA_RUNTIME[function_name] = lua_function_reference(function_name)
 
     else:
-        lua.execute(function_execute)
+        LUA.execute(function_execute)
 
 def lua_function_name(function):
     return function[function.index('function ') + len('function '):function.index('(')].strip()
@@ -450,7 +455,7 @@ def lua_function_name(function):
 def lua_function_reference(function_name):
     # In order to return a named LUA function, we need to add a return statement in the end
     # read more: https://github.com/scoder/lupa/issues/22
-    return lua.execute('return ' + function_name)
+    return LUA.execute('return ' + function_name)
 
 def lua_function_source(function):
     result = []
