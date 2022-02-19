@@ -33,6 +33,7 @@ import vaivora
 from cache import TOSParseCache as Cache
 
 SUPPORTED_REGIONS = ['itos', 'ktos', 'ktest', 'jtos', 'twtos']
+TRANSLATE_REGIONS = ['itos', 'jtos', 'twtos']
 
 def print_version(file_name: str, version: dict):
     with open(file_name, 'w') as file:
@@ -60,7 +61,7 @@ if __name__ == '__main__':
     latest  = read_version(join('..', 'downloader', 'revision.csv'))
 
     if latest[region] == current[region] and '-f' not in sys.argv:
-        logging.warning('Parse is already update to date')
+        logging.warning('The parsed data is already update to date.')
         quit()
         
     cache.build(region)
@@ -69,10 +70,8 @@ if __name__ == '__main__':
 
     luautil.init(cache)
 
-    no_translation = ['ktos', 'ktest']
-
-    if region not in no_translation:
-        translation.makeDictionary(cache)
+    if region in TRANSLATE_REGIONS:
+        translation.parse_translations(cache)
     
     asset.parse(cache)
 
@@ -83,6 +82,8 @@ if __name__ == '__main__':
     skills.parse_skill_tree (cache) # Parse Class Skills
     sets  .parse_legend_sets(cache) # Parse Legend Sets and Skills
     items .parse_cosplay    (cache) # Parse Costume Skills
+    skills.parse_relic      (cache) # Parse Relic Release
+    skills.parse_common     (cache) # Parse Common Skills
     skills.parse_skills     (cache) # Parse Cached Skills
 
     attributes.parse(cache)
@@ -100,11 +101,10 @@ if __name__ == '__main__':
     items.parse_collections          (cache) # Parse Collections
     items.parse_recipes              (cache) # Parse Recipes
     items.parse_books                (cache) # Parse Books
-    items.parse_card_battle          (cache) # Parse "Card Battle" (?)
 
     sets.parse_equipment_sets(cache) # Parse Equipment Sets
 
-    if region not in no_translation:
+    if region in TRANSLATE_REGIONS:
         vaivora.parse(cache)
         vaivora.parse_lv4(cache)
     

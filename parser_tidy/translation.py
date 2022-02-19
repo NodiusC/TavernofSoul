@@ -1,83 +1,63 @@
 # -*- coding: utf-8 -*-
 """
+XML Parser for Translations.
+
 Created on Mon Sep 20 09:12:11 2021
 
 @author: Temperantia
-modified from rjgtav 
- https://github.com/rjgtav/tos-database/blob/master/tos-parser/src/parserr/parser_translations.py
-
-create dictionary csv for future translation of game aspects
+@credit: rjgtav, Temperantia, Nodius
 """
 
 import csv
+import glob
 import logging
-import os
-import xml.etree.ElementTree as ET
+from os.path import exists, join, normpath, sep
+
+from lxml import etree as XML
 
 from cache import TOSParseCache as Cache
-from os.path import join, exists
 
-TRANSLATION_PREFIX = '@dicID_^*$'
-TRANSLATION_SUFFIX = '$*^'
+LOG = logging.getLogger('Parse.Translations')
+LOG.setLevel(logging.INFO)
 
-# Parse the dictionary in language.ipf and translate it to dictionary from language.tsv
-def parse_dictionary(translations, c):
-    translations_all = {}
-    dictionary_path = join(c.PATH_INPUT_DATA,"language.ipf", "wholeDicID.xml")
+def parse_translations(cache: Cache):
+    translations = {}
 
-    if not exists(dictionary_path):
-        return {}
-        
-    dictionary = ET.parse(dictionary_path).getroot()
- 
-    # example: <file name="xml\item_Equip.xml">
-    for file in dictionary:
-        # <data original="없음_helmet" dicid="@dicID_^*$ITEM_20150317_000001$*^"/>
-        for data in file:
-            key = data.get('original').replace('"', '')
-            value = data.get('dicid')
-            value_translated = '%s' % data.get('dicid')
-    
-            for dicid in value.split(TRANSLATION_SUFFIX):  # Sometimes there are multiple ids in a single entry (as translations are re-used)
-                if TRANSLATION_PREFIX in dicid:
-                    dicid = dicid[dicid.index(TRANSLATION_PREFIX) + len(TRANSLATION_PREFIX):]
-                    if dicid not in translations:
-                        logging.warn('Missing translation for dicid: (%s)', dicid)
-    
-                    translation = translations[dicid] if dicid in translations else dicid
-                    value_translated = value_translated.replace(TRANSLATION_PREFIX + dicid + TRANSLATION_SUFFIX, translation)
-    
-            translations_all[key] = value_translated
-    
-    return translations_all
+    for tsv_path in glob.glob(join(cache.TRANSLATION_PATH, '*.tsv')):
+        LOG.info('Parsing Translations from %s ...', normpath(tsv_path).split(sep)[-1])
 
-def parseTranslation(c):
-    # opening the language csv ( there's various language, currently only using english)
-    
-    result = {}
-    translation_path = c.TRANSLATION_PATH
-    for translation in os.listdir(translation_path):
-        if(translation == '.git'):
-            continue
-        cur_path = os.path.join(translation_path, translation)
+        with open(tsv_path, 'r', encoding = 'utf-8') as tsv_file:
+            for row in csv.reader(tsv_file, delimiter = '\t', quoting = csv.QUOTE_NONE):
+                if len(row) < 2:
+                    continue
 
-        if '.tsv' not in translation:
-            continue
+                if row[0] != '' and row[1] != '':
+                    translations[row[0]] = row[1]
 
-        with open(cur_path, 'r', encoding='utf-8') as translation_file:
-            for row in csv.reader(translation_file, delimiter='\t', quoting=csv.QUOTE_NONE):
-                if len(row) > 1:
-                    result[row[0]] =row[1]
-    return result
+                if len(row) < 5:
+                    continue
 
-def makeDictionary(c = None):
-    if (c == None):
-        c = Cache()
-        c.build()
-    
-    translation = parseTranslation(c)
-    dictionary = parse_dictionary(translation,c)
-    if dictionary!= {}:    
-        c.data['dictionary'] = dictionary
+                if row[3] != '' and row[4] != '':
+                    translations[row[3]] = row[4]
 
-    
+    xml_path = join(cache.PATH_INPUT_DATA, 'language.ipf', 'DicIDTable.xml')
+
+    if not exists(xml_path):
+        LOG.warning('File not found: DicIDTable.xml')
+        return
+
+    dictionary = {}
+
+    with open(xml_path, 'r', encoding = 'utf-8', errors = 'replace') as xml_file:
+        xml = XML.parse(xml_file, XML.XMLParser(recover = True, huge_tree = True))
+
+        for data in xml.iter('dic_data'):
+            id = data.get('ID')
+            kr = data.get('kr')
+
+            if id not in translations:
+                LOG.warning('Translation not found (%s): %s', id, kr)
+
+            dictionary[kr] = translations[id] if id in translations else id
+
+    cache.data['dictionary'] = dictionary
