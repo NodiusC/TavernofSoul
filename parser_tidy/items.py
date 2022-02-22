@@ -18,9 +18,16 @@ from lxml import etree as XML
 
 import constants.ies as IES
 import constants.stats as Stats
+import constants.visions as Visions
 import luautil
 import parse_xac
 from cache import TOSParseCache as Cache
+
+TRADE = ['Shop', 'Market', 'Team', 'User']
+TREE  = ['Char1', 'Char2', 'Char3', 'Char4', 'Char5']
+
+VISION_XPATH = './dic_data[contains(@FilenameWithKey, \'tooltip_%s_Data_0\')]'
+BOLDED       = '{nl} {nl}{@st66d}{s15}'
 
 LOG = logging.getLogger('Parse.Items')
 LOG.setLevel(logging.INFO)
@@ -28,30 +35,25 @@ LOG.setLevel(logging.INFO)
 goddess_atk_list = {}
 
 def _create_item(cache: Cache, data: dict) -> dict:
-    item_type = data['GroupName'].upper() if 'GroupName' in data else None 
-    item_type = data['Category'].upper() if 'Category' in data and data['Category'] != '' else item_type
-
     item = {}
 
-    item['$ID']                   = str(data['ClassID'])
-    item['$ID_NAME']              = data['ClassName']
-    item['Name']                  = cache.translate(data['Name']) if 'Name' in data else None
-    item['Type']                  = item_type
-    item['InternalType']          = item_type
-    item['Grade']                 = data['ItemGrade'] if 'ItemGrade' in data and data['ItemGrade'] != '' else 1
-    item['Description']           = cache.translate(data['Desc']) if 'Desc' in data else None
-    item['Icon']                  = cache.parse_entity_icon(data['Icon'])
-    item['Weight']                = float(data['Weight']) if 'Weight' in data else ''
-    item['TimeCoolDown']          = float(int(data['ItemCoolDown']) / 1000) if 'ItemCoolDown' in data else None
-    item['TimeLifeTime']          = float(int(data['LifeTime'])) if 'LifeTime' in data else None
-    item['Tradability']           = '%s%s%s%s' % (
-        'T' if data['MarketTrade'] == 'YES' else 'F', # Market
-        'T' if data['UserTrade']   == 'YES' else 'F', # Players
-        'T' if data['ShopTrade']   == 'YES' else 'F', # Shop
-        'T' if data['TeamTrade']   == 'YES' else 'F', # Team Storage
-    )
-    item['Price']                 = data['Price']
-    item['SellPrice']             = data['SellPrice']
+    item['$ID']           = str(data['ClassID'])
+    item['$ID_NAME']      = data['ClassName']
+    item['Name']          = cache.translate(data['Name']) if 'Name' in data else None
+    item['Type']          = data['GroupName'].upper()
+    item['InternalType']  = item['Type']
+    item['Grade']         = int(data['ItemGrade']) if 'ItemGrade' in data and data['ItemGrade'] != '' else 1
+    item['Stars']         = int(data['ItemStar'])
+    item['Description']   = cache.translate(data['Desc']) if 'Desc' in data else None
+    item['RequiredLevel'] = int(data['UseLv'])
+    item['Icon']          = cache.parse_entity_icon(data['Icon'])
+    item['Weight']        = float(data['Weight'])
+    item['Cooldown']      = float(int(data['ItemCoolDown']) / 1000)
+    item['Expiration']    = float(data['LifeTime'])
+    item['Destroyable']   = data['Destroyable'] == 'YES'
+    item['Tradability']   = ''.join(['T' if data['%sTrade' % (target)] == 'YES' else 'F' for target in TRADE])
+    item['Price']         = data['Price']
+    item['SellPrice']     = data['SellPrice']
 
     item['Link_Maps']             = []
     item['Link_Maps_Exploration'] = []
@@ -177,7 +179,13 @@ def parse_cubes(cache: Cache):
 def parse_equipment(cache: Cache):
     LUA_RUNTIME = luautil.LUA_RUNTIME
 
-    properties = LUA_RUNTIME['GET_COMMON_PROP_LIST']()
+    xml_path = join(cache.PATH_INPUT_DATA, 'language.ipf', 'DicIDTable.xml')
+
+    if exists(xml_path):
+        xml = XML.parse(xml_path, XML.XMLParser(recover = True))
+    else:
+        LOG.warning('File not found: DicIDTable.xml')
+        xml = XML.Element('DicIDTable')
 
     for file_name in IES.EQUIPMENT:
         LOG.info('Parsing Equipment from %s ...', file_name)
@@ -186,181 +194,109 @@ def parse_equipment(cache: Cache):
 
         if not exists(ies_path):
             LOG.warning('File not found: %s', file_name)
-            return
+            continue
 
         with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
             for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
                 equipment = _create_item(cache, row)
                 
-                equipment['Type'] = 'EQUIPMENT'
-
-                # Calculate all properties using in-game formulas
-                tooltip_script = row['RefreshScp']
-
-                if 'MarketCategory' in row:
-                    tooltip_script = 'SCR_REFRESH_ACC'     if not tooltip_script and 'Accessory_' in row['MarketCategory'] else tooltip_script
-                    tooltip_script = 'SCR_REFRESH_ARMOR'   if not tooltip_script and 'Armor_'     in row['MarketCategory'] else tooltip_script
-                    tooltip_script = 'SCR_REFRESH_HAIRACC' if not tooltip_script and 'HairAcc_'   in row['MarketCategory'] else tooltip_script
-                    tooltip_script = 'SCR_REFRESH_WEAPON'  if not tooltip_script and ('Weapon_'   in row['MarketCategory'] or 'ChangeEquip_' in row['MarketCategory']) else tooltip_script
-
-                if tooltip_script:
-                    try:
-                        LUA_RUNTIME[tooltip_script](row)
-                    except :
-                        pass
-
-                # Add additional fields
-                equipment['AnvilATK']      = []
-                equipment['AnvilDEF']      = []
-                equipment['AnvilPrice']    = []
-                equipment['Bonus']         = []
-                equipment['Durability']    = -1                    if int(row['MaxDur']) <= 0  else int(row['MaxDur']) / 100
-                equipment['Grade']         = int(row['ItemGrade']) if row['ItemGrade']   != '' else 1
-                equipment['Level']         = int(row['ItemLv'])    if int(row['ItemLv']) >  0  else int(row['UseLv'])
-                equipment['Material']      = row['Material']
-                equipment['Potential']     = int(row['MaxPR'])
-                equipment['RequiredClass'] = '%s%s%s%s%s' % (
-                    'T' if any(j in row['UseJob'] for j in ['All', 'Char1']) else 'F', # Swordsman
-                    'T' if any(j in row['UseJob'] for j in ['All', 'Char2']) else 'F', # Wizard
-                    'T' if any(j in row['UseJob'] for j in ['All', 'Char3']) else 'F', # Archer
-                    'T' if any(j in row['UseJob'] for j in ['All', 'Char4']) else 'F', # Cleric
-                    'T' if any(j in row['UseJob'] for j in ['All', 'Char5']) else 'F', # Scout
-                )
-                equipment['RequiredLevel'] = int(row['UseLv'])
-                equipment['Sockets']       = int(row['BaseSocket'])
-                equipment['SocketsLimit']  = int(row['MaxSocket_COUNT'])
-                equipment['Stars']         = int(row['ItemStar'])
-
-                try:
-                    equipment['Stat_ATTACK_MAGICAL'] = int(row['MATK']) 
-                except:
-                    equipment['Stat_ATTACK_MAGICAL'] = 0
-
-                try:
-                    equipment['Stat_ATTACK_PHYSICAL_MIN'] = int(row['MINATK']) 
-                except:
-                    equipment['Stat_ATTACK_PHYSICAL_MIN'] = 0
-
-                try:
-                    equipment['Stat_ATTACK_PHYSICAL_MAX'] = int(row['MAXATK']) if 'MAXATK' in row and row['MAXATK'] != None else 0
-                except:
-                    equipment['Stat_ATTACK_PHYSICAL_MAX'] = 0
-
-                try:
-                    equipment['Stat_DEFENSE_MAGICAL'] = int(row['MDEF']) if 'MDEF' in row and row['MDEF'] != None else 0
-                except:
-                    equipment['Stat_DEFENSE_MAGICAL'] = 0
-
-                try:
-                    equipment['Stat_DEFENSE_PHYSICAL'] = int(row['DEF']) if 'DEF' in row and row['DEF'] != None else 0
-                except:
-                    equipment['Stat_DEFENSE_PHYSICAL'] = 0
-            
-                if equipment['Grade'] == 6 and int(row['UseLv']) in goddess_atk_list and tooltip_script == 'SCR_REFRESH_ACC':
-                    atk = goddess_atk_list[int(row['UseLv'])]['BasicAccAtk']
-
-                    equipment['Stat_ATTACK_MAGICAL']      = atk
-                    equipment['Stat_ATTACK_PHYSICAL_MIN'] = atk
-                    equipment['Stat_ATTACK_PHYSICAL_MAX'] = atk
-
+                equipment['Type']          = 'EQUIPMENT'
                 equipment['TypeAttack']    = row['AttackType']
                 equipment['TypeEquipment'] = row['ClassType'].upper()
+                equipment['Level']         = row['ItemLv'] if row['ItemLv'] > 0 else equipment['RequiredLevel']
+                equipment['Material']      = row['Material']
+                equipment['RequiredTree']  = 'TTTTT' if 'All' in row['UseJob'] else ''.join(['T' if tree in row['UseJob'] else 'F' for tree in TREE])
+                equipment['RequiredClass'] = row['JobOnly']
+                equipment['Gender']        = row['UseGender']
 
-                # Hair Accessory 
-                if 'ReqToolTip' in row:
-                    if row['ReqToolTip'][:-1] == '헤어 코스튬':
-                        equipment['TypeEquipment'] = 'HAIR_ACC_' + row['ReqToolTip'][-1:]
+                # Generate attack and defense of equipment into data
+                if row['RefreshScp'] != '':
+                    LUA_RUNTIME[row['RefreshScp']](row)
                 
-                equipment['Unidentified'] = row['NeedAppraisal'] == 1
-                equipment['RandomIchor']  = row['NeedRandomOption'] == 1
+                equipment['MAXPATK'] = int(row['MAXATK']) if 'MAXATK' in row else 0
+                equipment['MINPATK'] = int(row['MINATK']) if 'MINATK' in row else 0
+                equipment['MATK']    = int(row['MATK'])   if 'MATK'   in row else 0
+                equipment['PDEF']    = int(row['DEF'])    if 'DEF'    in row else 0
+                equipment['MDEF']    = int(row['MDEF'])   if 'MDEF'   in row else 0
 
-                # HOTFIX: Agny Necklace
-                if 'ADD_FIRE' in row['BasicTooltipProp'].split(','):
-                    row['ADD_FIRE'] = floor(equipment['Level'] * (int(cache.data['grade_ratios'][int(row['ItemGrade'])]['BasicRatio']) / 100.0))
+                equipment['Sockets']    = int(row['BaseSocket'])
+                equipment['MaxSockets'] = int(row['MaxSocket_COUNT'])
+                equipment['Potential']  = int(row['MaxPR'])
+                equipment['Durability'] = float(int(row['MaxDur']) / 100) if row['MaxDur'] > 0 else -1
 
-                # Anvil
-                reinf = 'GET_REINFORCE_131014_PRICE' if 'GET_REINFORCE_PRICE' not in LUA_RUNTIME and 'GET_REINFORCE_131014_PRICE' in LUA_RUNTIME else 'GET_REINFORCE_PRICE'
-                
-                # Goddess Grade
-                if (equipment['Grade'] != 6) and reinf != None:
-                    if any(prop in row['BasicTooltipProp'] for prop in ['ATK', 'DEF', 'MATK', 'MDEF']):
-                        for lv in range(40):
-                            row['Reinforce_2'] = lv
+                equipment['Dismantlable'] = row['DecomposeAble'] == 'YES'
+                equipment['Extractable']  = row['Extractable']   == 'Yes'
 
-                            if any(prop in row['BasicTooltipProp'] for prop in ['DEF', 'MDEF']):
-                                equipment['AnvilDEF'].append(LUA_RUNTIME['GET_REINFORCE_ADD_VALUE'](None, row, 0, 1))
-                                equipment['AnvilPrice'].append(LUA_RUNTIME[reinf](row, {}, None))
-                            
-                            if any(prop in row['BasicTooltipProp'] for prop in ['ATK', 'MATK']):
-                                equipment['AnvilATK'].append(LUA_RUNTIME['GET_REINFORCE_ADD_VALUE_ATK'](row, 0, 1, None))
-                                equipment['AnvilPrice'].append(LUA_RUNTIME[reinf](row, {}, None))
+                stats = {}
+
+                for stat in Stats.EQUIPMENT:
+                    if stat not in row or row[stat] == '' or row[stat] == '0':
+                        continue
                     
-            
-                    equipment['AnvilPrice'] = [int(value) for value in equipment['AnvilPrice'] if value > 0]
-                    equipment['AnvilATK']   = [int(value) for value in equipment['AnvilATK'] if value > 0] if len(equipment['AnvilPrice']) > 0 else None
-                    equipment['AnvilDEF']   = [int(value) for value in equipment['AnvilDEF'] if value > 0] if len(equipment['AnvilPrice']) > 0 else None
-                
-                LUA = luautil.LUA
+                    # HOTFIX: Stamina Recovery is Maximum Stamina
+                    if stat == 'RSTA':
+                        stat = 'MSTA'
 
-                equipment['TranscendPrice'] = []
+                    # HOTFIX: Additional Property Damage is Additional Damage
+                    if stat in Stats.ADD_DAMAGE:
+                        stat = 'Add_Damage_Atk'
 
-                for lv in range(10):
-                    row['Transcend'] = 0
-                    equipment['TranscendPrice'].append(LUA_RUNTIME['GET_TRANSCEND_MATERIAL_COUNT'](row, lv))
+                    # HOTFIX: Additional Property Damage Resistance is Additional Damage Resistance
+                    if stat in Stats.ADD_DAMAGE_RESISTANCE:
+                        stat = 'ResAdd_Damage'
 
-                # Goddess Grade is special and beyond your understanding
-                if (equipment['Grade'] == 6):
-                    equipment['TranscendPrice'].append(LUA.execute('return get_TC_goddess')(int(row['UseLv']), row['ClassType'], 0, 10))
-                
-                try:
-                    equipment['TranscendPrice'] = [floor(value) for value in equipment['TranscendPrice'] if value > 0]
-                except:
-                    # Goddess Grade is again special and beyond your mortal understanding
-                    a = [dict(table)['Premium_item_transcendence_Stone'] for table in equipment['TranscendPrice'][1:]]
-                    equipment['TranscendPrice'] = [0] + a + [20]
-                
-                # Bonus
-                for stat in properties:
-                    if stat in row:
-                        if row[stat] == None:
-                            row[stat] = 0
-                        
-                        value = floor(float(row[stat]))
+                    if stat in stats:
+                        stats[stat] += int(row[stat])
+                    else:
+                        stats[stat] = int(row[stat])
 
-                        if value != 0:
-                            equipment['Bonus'].append([stat, value])
+                equipment['Bonus'] = list(stats.items())
 
-                # More Bonus
-                if 'OptDesc' in row and len(row['OptDesc']) > 0:
-                    for bonus in cache.translate(row['OptDesc']).split('{nl}'):
-                        bonus = bonus.strip()
-                        bonus = bonus[bonus.index('-'):] if '-' in bonus else bonus
-
-                        equipment['Bonus'].append(['UNKNOWN', bonus.replace('- ', '').strip()]) # Stat, Value
+                if row['OptDesc'] != '':
+                    equipment['Bonus'].append(('', cache.translate(row['OptDesc'])))
                 
                 equipment['model'] = parse_xac.eq_model_name(row, cache)
+
+                # Visions
+                if equipment['TypeEquipment'] == 'ARCANE':
+                    equipment['TypeEquipment'] = 'VISION'
+
+                    if row['NumberArg1'] == '1':
+                        equipment['VisionClass'] = Visions.VISION_CLASS[equipment['$ID_NAME']]
+                    else:
+                        equipment['VisionClass'] = Visions.VISION_CLASS[equipment['$ID_NAME'][:-4]]
+
+                    # Base Effect
+                    if 'AdditionalOption_1' in row and row['AdditionalOption_1'] != '':
+                        equipment['Bonus'].append(('', cache.translate(xml.xpath(VISION_XPATH % row['AdditionalOption_1']).get('kr'))))
+
+                    # Final Effect
+                    if 'AdditionalOption_2' in row and row['AdditionalOption_2'] != '':
+                        equipment['Bonus'].append(('', cache.translate(xml.xpath(VISION_XPATH % row['AdditionalOption_2']).get('kr'))).replace(BOLDED, ''))
+
+                # Hair Accessories
+                if row['ReqToolTip'][:-1] == '헤어 코스튬':
+                    equipment['TypeEquipment'] = 'HAIR_ACC_' + row['ReqToolTip'][-1:]
 
                 cache.data['items'][equipment['$ID_NAME']] = equipment
 
 def parse_gems(cache: Cache):
-    parser = XML.XMLParser(recover = True)
+    xml_path = join(cache.PATH_INPUT_DATA, 'xml.ipf', 'socket_property.xml')
+
+    if exists(xml_path):
+        xml = XML.parse(xml_path, XML.XMLParser(recover = True))
+    else:
+        LOG.warning('File not found: socket_property.xml')
+        xml = XML.Element('SocketProperty')
 
     for file_name in IES.GEM:
         LOG.info('Parsing Gems from %s ...', file_name)
-
-        xml_path = join(cache.PATH_INPUT_DATA, 'xml.ipf', 'socket_property.xml')
-
-        if exists(xml_path):
-            xml = XML.parse(xml_path, parser)
-        else:
-            LOG.warning('File not found: socket_property.xml')
-            xml = XML.Element('SocketProperty')
         
         ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
 
         if not exists(ies_path):
             LOG.warning('File not found: %s', file_name)
-            return
+            continue
 
         with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
             for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
@@ -387,7 +323,7 @@ def parse_gems(cache: Cache):
                     cache.data['skills'][skill]['Gem'] = gem['$ID_NAME']
 
                 else:
-                    item = xml.find('./Item[@Name=\'' + gem['$ID_NAME'] + '\']')
+                    item = xml.find('./Item[@Name=\'%s\']' % gem['$ID_NAME'])
 
                     if item is None:
                         LOG.warning('Gem Levels Missing: %s', gem['$ID_NAME'])
@@ -398,8 +334,11 @@ def parse_gems(cache: Cache):
                     if base is None:
                         continue
 
-                    gain = Stats.GEM[re.match('/?(\S+?)/(\S+?)/?', base.get('PropList_MainOrSubWeapon'))        .group(1)]
-                    lose = Stats.GEM[re.match('/?(\S+?)/(\S+?)/?', base.get('PropList_MainOrSubWeapon_Penalty')).group(1)]
+                    gain = base.get('PropList_MainOrSubWeapon')        .split('/')[0]
+                    lose = base.get('PropList_MainOrSubWeapon_Penalty').split('/')[0]
+
+                    slice_gain = len(gain + '/')
+                    slice_lose = len(lose + '/')
 
                     stats = {}
 
@@ -415,8 +354,8 @@ def parse_gems(cache: Cache):
                         if level < 0:
                             continue
 
-                        stats[gain][level] = prop.get('PropList_MainOrSubWeapon')        [len(gain + '/'):]
-                        stats[lose][level] = prop.get('PropList_MainOrSubWeapon_Penalty')[len(lose + '/'):]
+                        stats[gain][level] = prop.get('PropList_MainOrSubWeapon')        [slice_gain:]
+                        stats[lose][level] = prop.get('PropList_MainOrSubWeapon_Penalty')[slice_lose:]
 
                     gem['Stats'] = stats
                 
@@ -467,7 +406,7 @@ def parse_goddess_equipment(cache: Cache):
 
         if not exists(ies_path):
             LOG.warning('File not found: %s', file_name)
-            return
+            continue
 
         obj = []
 
@@ -476,21 +415,6 @@ def parse_goddess_equipment(cache: Cache):
                 obj.append(row)
 
         cache.data['goddess_reinf'][ies_list[file_name]] = obj
-
-def parse_goddess_reinforcement(cache: Cache):
-    files = IES.REINFORCE
-
-    global goddess_atk_list
-
-    for file_name in files:
-        ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
-
-        if not exists(ies_path):
-            LOG.warning('File not found: %s', file_name)
-            continue
-
-        with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
-            goddess_atk_list[files[file_name]] = next(csv.DictReader(ies_file, delimiter = ',', quotechar = '"'))
 
 def parse_grade_ratios(cache: Cache):
     LOG.info('Parsing Grade Ratios from item_grade.ies ...')
@@ -517,7 +441,7 @@ def parse_items(cache: Cache):
 
         if not exists(ies_path):
             LOG.warning('File not found: %s', file_name)
-            return
+            continue
 
         with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
             for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
@@ -529,6 +453,9 @@ def parse_items(cache: Cache):
 
                 if item['Type'] == 'CUBE':
                     item['TypeCube'] = row['StringArg']
+
+                if item['Type'] == 'DRUG':
+                    item['Type'] == 'CONSUMABLE'
 
                 # HOTFIX: 2021 Savinose Dysnai
                 if item['Type'] in ['ARMOR', 'WEAPON'] and re.match('^2021_NewYear_Disnai_.+_box$', row['ClassName']):
@@ -591,6 +518,3 @@ def parse_recipes(cache: Cache):
                 recipe['Materials'].append(material)
 
             cache.data['items'][recipe['$ID_NAME']] = recipe
-
-def parse_visions(cache: Cache):
-    LOG.info('Parsing Visions ...') # TODO

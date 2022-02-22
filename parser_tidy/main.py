@@ -29,7 +29,6 @@ import parse_xac
 import sets
 import skills
 import translation
-import vaivora
 from cache import TOSParseCache as Cache
 
 SUPPORTED_REGIONS = ['itos', 'ktos', 'ktest', 'jtos', 'twtos']
@@ -94,7 +93,6 @@ if __name__ == '__main__':
 
     items.parse_items                (cache) # Parse Items
     items.parse_grade_ratios         (cache) # Parse Grade Ratios
-    items.parse_goddess_reinforcement(cache) # Parse Goddess Grade Reinforcements
     items.parse_equipment            (cache) # Parse Equipment
     items.parse_gems                 (cache) # Parse Gems
     items.parse_cubes                (cache) # Parse Cubes
@@ -103,10 +101,6 @@ if __name__ == '__main__':
     items.parse_books                (cache) # Parse Books
 
     sets.parse_equipment_sets(cache) # Parse Equipment Sets
-
-    if region in TRANSLATE_REGIONS:
-        vaivora.parse(cache)
-        vaivora.parse_lv4(cache)
     
     items_static.insert_static(cache)
     

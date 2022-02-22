@@ -29,8 +29,9 @@ class TOSParseCache():
     CONVERTER_PATH                = join('XAC', 'XAC2DAE.jar')
 
     REGIONS = {
-        'itos': 'English',
-        'jtos': 'Japanese'
+        'itos' : 'English',
+        'jtos' : 'Japanese',
+        'twtos': 'Taiwanese'
     }
     
     data_build = ['assets_icons', 'maps', 'maps_by_name', 'maps_by_position']

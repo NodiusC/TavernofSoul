@@ -1,4 +1,4 @@
-JOB = {
+VISION_CLASS = {
     # Swordsman
     'TSW04_126_1' : 1002, # Highlander       - Dual Sword
     'SWD04_126_5' : 1003, # Peltasta         - Serrated Shield
