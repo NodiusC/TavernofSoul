@@ -5,46 +5,26 @@ IES Parser for Skills.
 Created on Thu Sep 23 08:55:17 2021
 
 @author: Temperantia
-@credit: Temperantia, Nodius
+@credit: rjgtav, Temperantia, Nodius
 """
 
 import csv
 import io
 import logging
-import math
 import os
-import re
 from os.path import exists, join
 
-from sympy import Integer, jscode, symbols
+from sympy import Float, Integer, jscode, symbols
 
 import constants.damage as Damage
 import constants.ies as IES
 import luautil
 from cache import TOSParseCache as Cache
 
-EFFECT_DEPRECATE = { 'SkillAtkAdd': 'SkillFactor' }
-
-EFFECTS = []
-
 X = symbols('x') # Skill Level Variable
 
 LOG = logging.getLogger('Parse.Skills')
 LOG.setLevel(logging.INFO)
-
-def parse(cache: Cache = None):
-    if cache == None:
-        cache = Cache()
-
-        cache.build('ktest')
-    
-    luautil.init(cache)
-    
-    parse_skills_overheats(cache)
-    parse_skills_simony(cache)
-    # parse_skills_stances(c)
-    parse_links_jobs(cache)
-    parse_skills_script(cache)
 
 def parse_common(cache: Cache):
     pass # TODO: Assister and Ride Pet
@@ -53,16 +33,16 @@ def parse_relic(cache: Cache):
     pass # TODO: Relic Release
 
 def parse_skills(cache: Cache):
+    LUA_RUNTIME = luautil.LUA_RUNTIME
+
     for file_name in IES.SKILL:
         LOG.info('Parsing Skills from %s ...', file_name)
-
-        LUA_RUNTIME = luautil.LUA_RUNTIME
 
         ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
 
         if not exists(ies_path):
             LOG.warning('File not found: %s', file_name)
-            return
+            continue
 
         with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
             for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
@@ -71,36 +51,36 @@ def parse_skills(cache: Cache):
 
                 skill = cache.data['skills'][row['ClassName']]
 
-                skill['$ID']         = str(row['ClassID'])
+                skill['$ID']         = row['ClassID']
                 skill['Name']        = cache.translate(row['Name'])
                 skill['Icon']        = cache.parse_entity_icon(row['Icon'])
                 skill['Description'] = cache.translate(row['Caption'])
                 skill['Details']     = cache.translate(row['Caption2'])
 
-                skill['TypeDamage']  = Damage.of(row['ClassType'], row['AttackType'], row['Attribute']) if row['ValueType'] == 'Attack' else ['BUFF']
+                skill['TypeDamage']  = Damage.of(row) if row['ValueType'] == 'Attack' else ['BUFF']
                 skill['AttackSpeed'] = row['AffectedByAttackSpeedRate'] == 'YES'
                 skill['Weapons']     = row['ReqStance']
                 skill['Riding']      = row['EnableCompanion'] in ['YES', 'BOTH']
 
-                skill['ItemCost']     = row['SpendItemBaseCount']
-                skill['BaseSP']       = row['BasicSP']            # HOTFIX: Level 0
-                skill['BaseCooldown'] = row['BasicCoolDown']      # Level 0
+                skill['ItemCost']     = int(row['SpendItemBaseCount'])
+                skill['BaseSP']       = float(row['BasicSP'])          # HOTFIX: Level 0
+                skill['BaseCooldown'] = int(row['BasicCoolDown'])      # Level 0
 
                 if skill['Type'] == 'CLASS' and row['CoolDown'] != 'SCR_GET_SKL_COOLDOWN':
                     base_cd = LUA_RUNTIME[row['CoolDown']](row | {'Level': 1})
                     leveled = LUA_RUNTIME[row['CoolDown']](row | {'Level': 2})
 
                     # The scaling of cooldown reduction is currently linear across all skill levels
-                    cooldown_f = base_cd * (2 - X) + leveled * (X - 1) # Simplified Linear Interpolation
+                    cd_formula = base_cd * (2 - X) + leveled * (X - 1) # Simplified Linear Interpolation
                 
                 else:
-                    cooldown_f = Integer(skill['BaseCooldown']) # No cooldown reduction based on level if not a class skill
+                    cd_formula = Integer(skill['BaseCooldown']) # No cooldown reduction based on level if not a class skill
 
                 # HOTFIX: Praise is the only skill with SP cost scaling with skill level
-                spcost_f = skill['BaseSP'] * (1.1 - X  * 0.1) if row['SpendSP'] == 'SCR_GET_SpendSP_Praise' else Integer(skill['BaseSP'])
+                sp_formula = skill['BaseSP'] * (1.1 - X  * 0.1) if row['SpendSP'] == 'SCR_GET_SpendSP_Praise' else Float(skill['BaseSP'])
 
-                skill['SPCost']   = jscode(spcost_f)
-                skill['Cooldown'] = jscode(cooldown_f)
+                skill['SPCost']   = jscode(sp_formula)
+                skill['Cooldown'] = jscode(cd_formula)
                 skill['Overheat'] = row['SklUseOverHeat']
                 
                 skill['SkillFactor']         = float(row['SklFactor'])
@@ -146,49 +126,6 @@ def parse_skill_tree(cache: Cache):
                 skill['Type'] = 'CLASS'
 
             cache.data['skills'][skill['$ID_NAME']] = skill
-
-def parse_skills_overheats( constants):
-    logging.debug('Parsing skills overheats...')
-    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'cooldown.ies')
-    if(not exists(ies_path)):
-       return
-    with io.open(ies_path, 'r', encoding = 'utf-8') as ies_file:
-        for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
-            # We're only interested in overheats
-            if row['IsOverHeat'] != 'YES':
-                continue
-            skill = None
-            for obj in constants.data['skills'].values():
-                if isinstance(obj['OverHeat'], (dict,)) and row['ClassName'] == obj['OverHeat']['Group']:
-                    skill = obj
-                    break
-            # If skill isn't available, ignore
-            if skill is None:
-                continue
-            skill['OverHeat'] = int(row['MaxOverTime']) / skill['OverHeat']['Value'] if skill['OverHeat']['Value'] > 0 else 0
-    # Clear skills with no OverHeat information
-    for skill in constants.data['skills'].values():
-        if isinstance(skill['OverHeat'], (dict,)):
-            skill['OverHeat'] = 0
-
-
-def parse_skills_simony(constants):
-    logging.debug('Parsing skills simony...')
-
-    ies_path = os.path.join(constants.PATH_INPUT_DATA, 'ies.ipf', 'skill_simony.ies')
-    if(not exists(ies_path)):
-       return
-    with io.open(ies_path, 'r', encoding = 'utf-8') as ies_file:
-        for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
-            if row['ClassID'] not in constants.data['skills']:
-                logging.error('Unknown skill: {}'.format( row['ClassID']))
-                continue
-
-            skill = constants.data['skills'][row['ClassID']]
-            skill['IsEnchanter'] = True
-            skill['IsPardoner'] = True
-            skill['IsRunecaster'] = True
-
 
 def parse_skills_stances(constants):
     logging.debug('Parsing skills stances...')
@@ -290,39 +227,6 @@ def parse_skills_script(constants):
     for g in constants.data['skills'].values():
         for i in range(len(key_dict)):
             run_lua(g,key_special[i], key_dict[i])
-
-            
-
-def parse_links(c = None):
-    if c == None:
-        c = Cache()
-        c.build(Cache.iTOS)
-    c = parse_links_jobs(True,c)
-
-
-def parse_links_jobs(constants):
-    logging.debug('Parsing jobs for skills...')
-    ies_path = join(constants.PATH_INPUT_DATA, 'ies.ipf', 'skilltree.ies')
-
-    z = []
-    with io.open(ies_path, 'r', encoding = 'utf-8') as ies_file:
-        for row in csv.DictReader(ies_file, delimiter=',', quotechar='"'):
-            z.append(row)
-            # Ignore discarded skills
-            if row['SkillName'] not in constants.data['skills']:
-                continue
-
-            skill = constants.data['skills'][row['SkillName']]
-            skill['MaxLevel'] = int(row['MaxLevel'])
-            skill['LevelPerGrade'] = int(row['LevelPerGrade']) if 'LevelPerGrade' in row else 0
-            skill['UnlockClassLevel'] = int(row['UnlockClassLevel']) if 'UnlockClassLevel' in row else 0
-            skill['UnlockGrade'] = int(row['UnlockGrade']) if 'UnlockGrade' in row else 0
-
-            job = '_'.join(row['ClassName'].split('_')[:2])       
-            skill['Link_Job'] = constants.data['jobs_by_name'][job]['$ID']
-            constants.data['skills'][skill['$ID_NAME']] = skill
-    return constants
-
 
 def parse_clean(constants):
     skills_to_remove = []

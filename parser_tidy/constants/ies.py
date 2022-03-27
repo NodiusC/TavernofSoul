@@ -1,4 +1,6 @@
 """
+IES file name constants.
+
 Created on Sat Feb 12 20:24:21 2022
 
 @author: Nodius

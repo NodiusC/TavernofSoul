@@ -85,20 +85,18 @@ if __name__ == '__main__':
     skills.parse_common     (cache) # Parse Common Skills
     skills.parse_skills     (cache) # Parse Cached Skills
 
-    attributes.parse(cache)
-    attributes.parse_links(cache)   
-    attributes.parse_clean(cache)
+    attributes.parse_attributes(cache) # Parse Attributes
 
     buff.parse(cache)
 
-    items.parse_items                (cache) # Parse Items
-    items.parse_grade_ratios         (cache) # Parse Grade Ratios
-    items.parse_equipment            (cache) # Parse Equipment
-    items.parse_gems                 (cache) # Parse Gems
-    items.parse_cubes                (cache) # Parse Cubes
-    items.parse_collections          (cache) # Parse Collections
-    items.parse_recipes              (cache) # Parse Recipes
-    items.parse_books                (cache) # Parse Books
+    items.parse_items       (cache) # Parse Items
+    items.parse_grade_ratios(cache) # Parse Grade Ratios
+    items.parse_equipment   (cache) # Parse Equipment
+    items.parse_gems        (cache) # Parse Gems
+    items.parse_cubes       (cache) # Parse Cubes
+    items.parse_collections (cache) # Parse Collections
+    items.parse_recipes     (cache) # Parse Recipes
+    items.parse_books       (cache) # Parse Books
 
     sets.parse_equipment_sets(cache) # Parse Equipment Sets
     

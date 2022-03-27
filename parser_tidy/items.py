@@ -11,7 +11,6 @@ Created on Mon Sep 20 11:18:38 2021
 import csv
 import logging
 import re
-from math import floor
 from os.path import exists, join
 
 from lxml import etree as XML
@@ -33,33 +32,6 @@ LOG = logging.getLogger('Parse.Items')
 LOG.setLevel(logging.INFO)
 
 goddess_atk_list = {}
-
-def _create_item(cache: Cache, data: dict) -> dict:
-    item = {}
-
-    item['$ID']           = str(data['ClassID'])
-    item['$ID_NAME']      = data['ClassName']
-    item['Name']          = cache.translate(data['Name']) if 'Name' in data else None
-    item['Type']          = data['GroupName'].upper()
-    item['InternalType']  = item['Type']
-    item['Grade']         = int(data['ItemGrade']) if 'ItemGrade' in data and data['ItemGrade'] != '' else 1
-    item['Stars']         = int(data['ItemStar'])
-    item['Description']   = cache.translate(data['Desc']) if 'Desc' in data else None
-    item['RequiredLevel'] = int(data['UseLv'])
-    item['Icon']          = cache.parse_entity_icon(data['Icon'])
-    item['Weight']        = float(data['Weight'])
-    item['Cooldown']      = float(int(data['ItemCoolDown']) / 1000)
-    item['Expiration']    = float(data['LifeTime'])
-    item['Destroyable']   = data['Destroyable'] == 'YES'
-    item['Tradability']   = ''.join(['T' if data['%sTrade' % (target)] == 'YES' else 'F' for target in TRADE])
-    item['Price']         = data['Price']
-    item['SellPrice']     = data['SellPrice']
-
-    item['Link_Maps']             = []
-    item['Link_Maps_Exploration'] = []
-    item['Link_Monsters']         = []
-
-    return item
 
 def parse_books(cache: Cache):
     LOG.info('Parsing Books from dialogtext.ies ...')
@@ -99,7 +71,7 @@ def parse_collections(cache: Cache):
             
             # Parse Collectible Items
             for i in range(1, 10):
-                item = row['ItemName_' + str(i)]
+                item = row['ItemName_%s' % i]
 
                 if item == '':
                     continue
@@ -114,7 +86,7 @@ def parse_collections(cache: Cache):
                 collection['Bonus'] = {}
 
             # Parse Collection Completion Bonus
-            for bonus in re.findall('/?(\S+?)/(\S+?)/?', row['PropList'] + '/' + row['AccPropList']):
+            for bonus in re.findall('/?(\S+?)/(\S+?)/?', '%s/%s' % (row['PropList'], row['AccPropList'])):
                 collection['Bonus'][Stats.COLLECTION[bonus[0]]] = int(bonus[1])
 
 def parse_cosplay(cache: Cache):
@@ -198,7 +170,7 @@ def parse_equipment(cache: Cache):
 
         with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
             for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
-                equipment = _create_item(cache, row)
+                equipment = __create_item(cache, row)
                 
                 equipment['Type']          = 'EQUIPMENT'
                 equipment['TypeAttack']    = row['AttackType']
@@ -230,28 +202,25 @@ def parse_equipment(cache: Cache):
                 stats = {}
 
                 for stat in Stats.EQUIPMENT:
-                    if stat not in row or row[stat] == '' or row[stat] == '0':
+                    if stat not in row:
                         continue
-                    
-                    # HOTFIX: Stamina Recovery is Maximum Stamina
-                    if stat == 'RSTA':
-                        stat = 'MSTA'
 
-                    # HOTFIX: Additional Property Damage is Additional Damage
-                    if stat in Stats.ADD_DAMAGE:
-                        stat = 'Add_Damage_Atk'
-
-                    # HOTFIX: Additional Property Damage Resistance is Additional Damage Resistance
-                    if stat in Stats.ADD_DAMAGE_RESISTANCE:
-                        stat = 'ResAdd_Damage'
-
-                    if stat in stats:
-                        stats[stat] += int(row[stat])
+                    if stat in __LEGACY_STAT_SOLVER:
+                        value = __LEGACY_STAT_SOLVER[stat](row)
                     else:
-                        stats[stat] = int(row[stat])
+                        if row[stat] == '' or row[stat] == '0':
+                            continue
+
+                        value = int(row[stat])
+
+                    if value == 0:
+                        continue
+
+                    stats[stat] = value
 
                 equipment['Bonus'] = list(stats.items())
 
+                # Non-Stat Bonuses
                 if row['OptDesc'] != '':
                     equipment['Bonus'].append(('', cache.translate(row['OptDesc'])))
                 
@@ -268,15 +237,15 @@ def parse_equipment(cache: Cache):
 
                     # Base Effect
                     if 'AdditionalOption_1' in row and row['AdditionalOption_1'] != '':
-                        equipment['Bonus'].append(('', cache.translate(xml.xpath(VISION_XPATH % row['AdditionalOption_1']).get('kr'))))
+                        equipment['Bonus'].append(('VSN_BASE', cache.translate(xml.xpath(VISION_XPATH % row['AdditionalOption_1']).get('kr'))))
 
                     # Final Effect
                     if 'AdditionalOption_2' in row and row['AdditionalOption_2'] != '':
-                        equipment['Bonus'].append(('', cache.translate(xml.xpath(VISION_XPATH % row['AdditionalOption_2']).get('kr'))).replace(BOLDED, ''))
+                        equipment['Bonus'].append(('VSN_FINAL', cache.translate(xml.xpath(VISION_XPATH % row['AdditionalOption_2']).get('kr'))).replace(BOLDED, ''))
 
                 # Hair Accessories
                 if row['ReqToolTip'][:-1] == '헤어 코스튬':
-                    equipment['TypeEquipment'] = 'HAIR_ACC_' + row['ReqToolTip'][-1:]
+                    equipment['TypeEquipment'] = 'HAIR_ACC_%s' % row['ReqToolTip'][-1:]
 
                 cache.data['items'][equipment['$ID_NAME']] = equipment
 
@@ -300,7 +269,7 @@ def parse_gems(cache: Cache):
 
         with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
             for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
-                gem = _create_item(cache, row)
+                gem = __create_item(cache, row)
 
                 gem['TypeGem'] = row['EquipXpGroup'].upper() if gem['Type'] == 'GEM' else gem['Type']
                 gem['Type']    = 'GEM'
@@ -308,7 +277,7 @@ def parse_gems(cache: Cache):
                 if gem['TypeGem'] == 'GEM_RELIC':
                     gem['RelicEffect'] = row['RelicGemOption']
 
-                    # TODO: SFR from LUA ('get_tooltip_' + ['RelicEffect'] + '_arg' + argc)
+                    # TODO: SFR from LUA ('get_tooltip_%s_arg%s' % (['RelicEffect'], argc))
 
                 elif gem['TypeGem'] == 'GEM_HIGH_COLOR':
                     gem['StatGrowth'] = row['StringArg']
@@ -445,7 +414,7 @@ def parse_items(cache: Cache):
 
         with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
             for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
-                item = _create_item(cache, row)
+                item = __create_item(cache, row)
                 
                 if item['Type'] == 'CARD':
                     item['IconTooltip'] = cache.parse_entity_icon(row['TooltipImage'])
@@ -482,13 +451,13 @@ def parse_recipes(cache: Cache):
 
     with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
-            recipe = _create_item(cache, row)
+            recipe = __create_item(cache, row)
 
             if row['TargetItem'] not in cache.data['items']:
                 LOG.warning('Recipe Product Missing: %s', row['TargetItem'])
                 continue
 
-            recipe['Name'] = 'Recipe - ' + cache.data['items'][row['TargetItem']]['Name']
+            recipe['Name'] = 'Recipe - %s' % cache.data['items'][row['TargetItem']]['Name']
 
             product = {}
             
@@ -501,7 +470,7 @@ def parse_recipes(cache: Cache):
                 recipe['Materials'] = []
 
             for i in range(1, 6):
-                item = row['Item_' + str(i) + '_1']
+                item = row['Item_%s_1' % i]
 
                 if item == '':
                     continue
@@ -513,8 +482,71 @@ def parse_recipes(cache: Cache):
                 material = {}
                 
                 material['Item']     = item
-                material['Quantity'] = int(row['Item_' + str(i) + '_1_Cnt'])
+                material['Quantity'] = int(row['Item_%s_1_Cnt' % i])
                     
                 recipe['Materials'].append(material)
 
             cache.data['items'][recipe['$ID_NAME']] = recipe
+
+def __create_item(cache: Cache, data: dict) -> dict:
+    item = {}
+
+    item['$ID']           = str(data['ClassID'])
+    item['$ID_NAME']      = data['ClassName']
+    item['Name']          = cache.translate(data['Name']) if 'Name' in data else None
+    item['Type']          = data['GroupName'].upper()
+    item['InternalType']  = item['Type']
+    item['Grade']         = int(data['ItemGrade']) if 'ItemGrade' in data and data['ItemGrade'] != '' else 1
+    item['Stars']         = int(data['ItemStar'])
+    item['Description']   = cache.translate(data['Desc']) if 'Desc' in data else None
+    item['RequiredLevel'] = int(data['UseLv'])
+    item['Icon']          = cache.parse_entity_icon(data['Icon'])
+    item['Weight']        = float(data['Weight'])
+    item['Cooldown']      = float(int(data['ItemCoolDown']) / 1000)
+    item['Expiration']    = float(data['LifeTime'])
+    item['Destroyable']   = data['Destroyable'] == 'YES'
+    item['Tradability']   = ''.join(['T' if data['%sTrade' % (target)] == 'YES' else 'F' for target in TRADE])
+    item['Price']         = data['Price']
+    item['SellPrice']     = data['SellPrice']
+
+    item['Link_Maps']             = []
+    item['Link_Maps_Exploration'] = []
+    item['Link_Monsters']         = []
+
+    return item
+
+def __resolve_addatk(row: dict) -> int:
+    value = 0 if row['Add_Damage_Atk'] == '' else int(row['Add_Damage_Atk'])
+
+    for stat in Stats.ADD_DAMAGE:
+        if row[stat] == '' or row[stat] == '0':
+            continue
+
+        value += int(row[stat])
+
+    return value
+
+def __resolve_addres(row: dict) -> int:
+    value = 0 if row['ResAdd_Damage'] == '' else int(row['ResAdd_Damage'])
+
+    for stat in Stats.ADD_DAMAGE_RESISTANCE:
+        if row[stat] == '' or row[stat] == '0':
+            continue
+
+        value += int(row[stat])
+    
+    return value
+
+def __resolve_maxsta(row: dict) -> int:
+    value = 0 if row['MSTA'] == '' else int(row['MSTA'])
+
+    if row['RSTA'] != '' and row['RSTA'] != '0':
+        value += int(row['RSTA'])
+
+    return value
+
+__LEGACY_STAT_SOLVER = {
+    'Add_Damage_Atk': __resolve_addatk, # HOTFIX: Additional Property Damage is Additional Damage
+    'ResAdd_Damage' : __resolve_addres, # HOTFIX: Additional Property Damage Resistance is Additional Damage Resistance
+    'MSTA'          : __resolve_maxsta  # HOTFIX: Stamina Recovery is Maximum Stamina
+}

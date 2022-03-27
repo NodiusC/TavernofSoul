@@ -13,11 +13,13 @@ LOG.setLevel(logging.INFO)
 def parse(cache: Cache):
     LUA = luautil.LUA
 
+    parser = XML.XMLParser(recover = True)
+
     for xml_path in glob.glob(join(cache.PATH_INPUT_DATA, 'skill_bytool.ipf', '*.xml')):
         LOG.info('Parsing Skill Effects from %s ...', normpath(xml_path).split(sep)[-1])
 
         with open(xml_path, 'r', encoding = 'utf-8', errors = 'replace') as xml_file:
-            xml = XML.parse(xml_file, recover = True)
+            xml = XML.parse(xml_file, parser)
 
             for entry in xml.iter('Skill'):
                 skill = {}

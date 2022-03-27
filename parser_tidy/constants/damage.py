@@ -33,16 +33,16 @@ TYPE = {
     'Cannon': 'CANNON'
 }
 
-def of(class_type: str, attack_type: str, attribute: str) -> list:
+def of(row: dict) -> list:
     damage = []
 
-    if class_type in ATTACK:
-        damage.append(ATTACK[class_type])
+    if row['ClassType'] in ATTACK:
+        damage.append(ATTACK[row['ClassType']])
 
-    if attack_type in TYPE:
-        damage.append(TYPE[attack_type])
+    if row['AttackType'] in TYPE:
+        damage.append(TYPE[row['AttackType']])
 
-    if attribute in ELEMENT:
-        damage.append(ELEMENT[attribute])
+    if row['Attribute'] in ELEMENT:
+        damage.append(ELEMENT[row['Attribute']])
 
     return damage

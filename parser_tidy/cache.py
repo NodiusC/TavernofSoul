@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Data Cache
-
-This module handles the cached data parsed from IES files.
+"""
+Handles the cached data parsed from IES files.
 To be exported as JSON then inserted into MySQL.
 
 Created on Mon Sep 20 09:20:20 2021
@@ -46,9 +45,7 @@ class TOSParseCache():
        'classes'           : {},
        'class_skills'      : {},
        'attributes'        : {},
-       'attributes_by_name': {},
        'skills'            : {},
-       'skill_tree'        : {},
        'skill_effects'     : {},
        'monsters'          : {},
        'monster_skills'    : {},

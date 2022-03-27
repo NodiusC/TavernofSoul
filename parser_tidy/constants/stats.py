@@ -6,25 +6,25 @@ Created on Sat Feb 12 20:24:52 2022
 """
 
 ADD_DAMAGE = [
-    'ADD_FIRE',
-    'ADD_ICE',
-    'ADD_LIGHTNING',
-    'ADD_EARTH',
-    'ADD_HOLY',
-    'ADD_DARK',
-    'ADD_SOUL',
-    'ADD_POISON'
+    'ADD_FIRE',      # Additional Damage (Legacy)
+    'ADD_ICE',       # Additional Damage (Legacy)
+    'ADD_LIGHTNING', # Additional Damage (Legacy)
+    'ADD_EARTH',     # Additional Damage (Legacy)
+    'ADD_HOLY',      # Additional Damage (Legacy)
+    'ADD_DARK',      # Additional Damage (Legacy)
+    'ADD_SOUL',      # Additional Damage (Legacy)
+    'ADD_POISON'     # Additional Damage (Legacy)
 ]
 
 ADD_DAMAGE_RESISTANCE = [
-    'RES_FIRE',
-    'RES_LIGHTNING',
-    'RES_ICE',
-    'RES_EARTH',
-    'RES_HOLY',
-    'RES_DARK',
-    'RES_SOUL',
-    'RES_POISON',
+    'RES_FIRE',      # Additional Damage Resistance (Legacy)
+    'RES_LIGHTNING', # Additional Damage Resistance (Legacy)
+    'RES_ICE',       # Additional Damage Resistance (Legacy)
+    'RES_EARTH',     # Additional Damage Resistance (Legacy)
+    'RES_HOLY',      # Additional Damage Resistance (Legacy)
+    'RES_DARK',      # Additional Damage Resistance (Legacy)
+    'RES_SOUL',      # Additional Damage Resistance (Legacy)
+    'RES_POISON'     # Additional Damage Resistance (Legacy)
 ]
 
 COLLECTION = {
@@ -91,7 +91,6 @@ EQUIPMENT = [
     'MSTA',                # Stamina
     'RHP',                 # HP Recovery
     'RSP',                 # SP Recovery
-    'RSTA',                # Stamina Recovery
     'SR',                  # AoE Attack Ratio
     'SDR',                 # AoE Defense Ratio
     'SkillRange',          # Attack Range
@@ -127,14 +126,6 @@ EQUIPMENT = [
     'ADD_KLAIDA',          # Attack Against Insects
 
     'Add_Damage_Atk',      # Additional Damage
-    'ADD_FIRE',            # Additional Damage (Legacy)
-    'ADD_ICE',             # Additional Damage (Legacy)
-    'ADD_LIGHTNING',       # Additional Damage (Legacy)
-    'ADD_EARTH',           # Additional Damage (Legacy)
-    'ADD_HOLY',            # Additional Damage (Legacy)
-    'ADD_DARK',            # Additional Damage (Legacy)
-    'ADD_SOUL',            # Additional Damage (Legacy)
-    'ADD_POISON',          # Additional Damage (Legacy)
 
     'SlashDEF',            # Slash Resistance
     'AriesDEF',            # Pierce Resistance
@@ -147,12 +138,4 @@ EQUIPMENT = [
     'Iron_Def',            # Offset For Plate-Armored Targets
 
     'ResAdd_Damage',       # Additional Damage Resistance
-    'RES_FIRE',            # Additional Damage Resistance (Legacy)
-    'RES_LIGHTNING',       # Additional Damage Resistance (Legacy)
-    'RES_ICE',             # Additional Damage Resistance (Legacy)
-    'RES_EARTH',           # Additional Damage Resistance (Legacy)
-    'RES_HOLY',            # Additional Damage Resistance (Legacy)
-    'RES_DARK',            # Additional Damage Resistance (Legacy)
-    'RES_SOUL',            # Additional Damage Resistance (Legacy)
-    'RES_POISON'           # Additional Damage Resistance (Legacy)
 ]
