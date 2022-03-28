@@ -207,14 +207,15 @@ def parse_equipment(cache: Cache):
 
                     if stat in __LEGACY_STAT_SOLVER:
                         value = __LEGACY_STAT_SOLVER[stat](row)
+
+                        if value == 0:
+                            continue
+
                     else:
                         if row[stat] == '' or row[stat] == '0':
                             continue
-
+                        
                         value = int(row[stat])
-
-                    if value == 0:
-                        continue
 
                     stats[stat] = value
 

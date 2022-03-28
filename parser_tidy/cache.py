@@ -45,6 +45,7 @@ class TOSParseCache():
        'classes'           : {},
        'class_skills'      : {},
        'attributes'        : {},
+       'attribute_groups'  : {},
        'skills'            : {},
        'skill_effects'     : {},
        'monsters'          : {},
