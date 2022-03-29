@@ -85,7 +85,8 @@ if __name__ == '__main__':
     skills.parse_common     (cache) # Parse Common Skills
     skills.parse_skills     (cache) # Parse Cached Skills
 
-    attributes.parse_attributes(cache) # Parse Attributes
+    attributes.parse_attributes        (cache) # Parse Attributes
+    attributes.parse_account_attributes(cache) # Parse Account Attributes
 
     buff.parse(cache)
 

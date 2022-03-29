@@ -17,16 +17,44 @@ from cache import TOSParseCache as Cache
 LOG = logging.getLogger('Parse.Attributes')
 LOG.setLevel(logging.INFO)
 
+def parse_account_attributes(cache: Cache):
+    LOG.info('Parsing Account Attributes from account_ability.ies ...')
+
+    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'account_ability.ies')
+
+    if not exists(ies_path):
+        LOG.warning('File not found: account_ability.ies')
+        return
+
+    with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
+        for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
+            attribute = {}
+
+            attribute['$ID']         = row['ClassID']
+            attribute['$ID_NAME']    = row['ClassName']
+            attribute['Name']        = cache.translate(row['Name'])
+            attribute['Icon']        = cache.parse_entity_icon(row['Icon'])
+
+            attribute['Type']     = 'ACCOUNT'
+            attribute['MaxLevel'] = int(row['MaxLevel'])
+
+            attribute['CostType'] = 'ACCOUNT'
+
+            attribute['Stat']  = row['BattlePropertyName'][:-3]
+            attribute['Value'] = int(row['PointByLevel'])
+
+            cache.data['attributes'][attribute['$ID_NAME']] = attribute
+
 def parse_attributes(cache: Cache):
     LOG.info('Parsing Attributes from ability.ies ...')
-
-    attributes = __get_valid_attributes(cache)
 
     ies_path = join(cache.PATH_INPUT_DATA, 'ies_ability.ipf', 'ability.ies')
 
     if not exists(ies_path):
         LOG.warning('File not found: ability.ies')
         return
+
+    attributes = __get_valid_attributes(cache)
 
     with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
