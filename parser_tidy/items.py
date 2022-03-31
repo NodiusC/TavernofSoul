@@ -23,24 +23,21 @@ import constants.ies as IES
 import luautil
 import parse_xac
 from cache import TOSParseCache as Cache
-from constants.stats import (
-    ADD_DAMAGE            as ADD_ATK_STATS,
-    ADD_DAMAGE_RESISTANCE as ADD_RES_STATS,
-    COLLECTION            as COLLECTION_STATS,
-    EQUIPMENT             as EQUIPMENT_STATS
+from constants.item import (
+    ADD_DAMAGE_STATS            as ADD_ATK_STATS,
+    ADD_DAMAGE_RESISTANCE_STATS as ADD_RES_STATS,
+    COLLECTION_STATS,
+    EQUIPMENT_STATS,
+    TRADABILITY,
+    VISION_TO_CLASS
 )
-from constants.visions import VISION_TO_CLASS
 
-TRADE = ['Shop', 'Market', 'Team', 'User']
-TREE  = ['Char1', 'Char2', 'Char3', 'Char4', 'Char5']
-
+__TREES        = ['Char1', 'Char2', 'Char3', 'Char4', 'Char5']
 __VISION_XPATH = './dic_data[contains(@FilenameWithKey, \'tooltip_%s_Data_0\')]'
 __BOLD_FORMAT  = '{nl} {nl}{@st66d}{s15}'
 
 LOG = logging.getLogger('Parse.Items')
 LOG.setLevel(logging.INFO)
-
-goddess_atk_list = {}
 
 def parse_books(cache: Cache):
     LOG.info('Parsing Books from dialogtext.ies ...')
@@ -186,7 +183,7 @@ def parse_equipment(cache: Cache):
                 equipment['TypeEquipment'] = row['ClassType'].upper()
                 equipment['Level']         = row['ItemLv'] if row['ItemLv'] > 0 else equipment['RequiredLevel']
                 equipment['Material']      = row['Material']
-                equipment['RequiredTree']  = 'TTTTT' if 'All' in row['UseJob'] else ''.join(['T' if tree in row['UseJob'] else 'F' for tree in TREE])
+                equipment['RequiredTree']  = 'TTTTT' if 'All' in row['UseJob'] else ''.join(['T' if tree in row['UseJob'] else 'F' for tree in __TREES])
                 equipment['RequiredClass'] = row['JobOnly']
                 equipment['Gender']        = row['UseGender']
 
@@ -512,7 +509,7 @@ def __create_item(cache: Cache, data: dict) -> dict:
     item['Cooldown']      = float(int(data['ItemCoolDown']) / 1000)
     item['Expiration']    = float(data['LifeTime'])
     item['Destroyable']   = data['Destroyable'] == 'YES'
-    item['Tradability']   = ''.join(['T' if data['%sTrade' % (target)] == 'YES' else 'F' for target in TRADE])
+    item['Tradability']   = ''.join(['T' if data['%sTrade' % (target)] == 'YES' else 'F' for target in TRADABILITY])
     item['Price']         = data['Price']
     item['SellPrice']     = data['SellPrice']
 

@@ -19,7 +19,7 @@ from sympy import Float, Integer, jscode, symbols
 import constants.ies as IES
 import luautil
 from cache import TOSParseCache as Cache
-from constants.damage import of as parse_properties
+from constants.ability import parse_damage_properties as parse_properties
 
 X = symbols('x') # Skill Level Variable
 

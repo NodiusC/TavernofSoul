@@ -13,7 +13,7 @@ import logging
 from os.path import exists, join
 
 from cache import TOSParseCache as Cache
-from constants.cost import ATTRIBUTE as ATTRIBUTE_COST
+from constants.ability import ATTRIBUTE_COST
 
 LOG = logging.getLogger('Parse.Attributes')
 LOG.setLevel(logging.INFO)
