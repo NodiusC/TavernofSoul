@@ -13,20 +13,29 @@ import logging
 import re
 from os.path import exists, join
 
-from lxml import etree as XML
+from lxml.etree import (
+    Element   as xml_element,
+    parse     as parse_xml,
+    XMLParser as XMLConfig
+)
 
 import constants.ies as IES
-import constants.stats as Stats
-import constants.visions as Visions
 import luautil
 import parse_xac
 from cache import TOSParseCache as Cache
+from constants.stats import (
+    ADD_DAMAGE            as ADD_ATK_STATS,
+    ADD_DAMAGE_RESISTANCE as ADD_RES_STATS,
+    COLLECTION            as COLLECTION_STATS,
+    EQUIPMENT             as EQUIPMENT_STATS
+)
+from constants.visions import get_class as get_vision_class
 
 TRADE = ['Shop', 'Market', 'Team', 'User']
 TREE  = ['Char1', 'Char2', 'Char3', 'Char4', 'Char5']
 
-VISION_XPATH = './dic_data[contains(@FilenameWithKey, \'tooltip_%s_Data_0\')]'
-BOLDED       = '{nl} {nl}{@st66d}{s15}'
+__VISION_XPATH = './dic_data[contains(@FilenameWithKey, \'tooltip_%s_Data_0\')]'
+__BOLD_FORMAT  = '{nl} {nl}{@st66d}{s15}'
 
 LOG = logging.getLogger('Parse.Items')
 LOG.setLevel(logging.INFO)
@@ -87,7 +96,7 @@ def parse_collections(cache: Cache):
 
             # Parse Collection Completion Bonus
             for bonus in re.findall('/?(\S+?)/(\S+?)/?', '%s/%s' % (row['PropList'], row['AccPropList'])):
-                collection['Bonus'][Stats.COLLECTION[bonus[0]]] = int(bonus[1])
+                collection['Bonus'][COLLECTION_STATS[bonus[0]]] = int(bonus[1])
 
 def parse_cosplay(cache: Cache):
     LOG.info('Parsing Costume Transformations from item_skillmake_costume.ies ...')
@@ -154,10 +163,10 @@ def parse_equipment(cache: Cache):
     xml_path = join(cache.PATH_INPUT_DATA, 'language.ipf', 'DicIDTable.xml')
 
     if exists(xml_path):
-        xml = XML.parse(xml_path, XML.XMLParser(recover = True))
+        xml = parse_xml(xml_path, XMLConfig(recover = True))
     else:
         LOG.warning('File not found: DicIDTable.xml')
-        xml = XML.Element('DicIDTable')
+        xml = xml_element('DicIDTable')
 
     for file_name in IES.EQUIPMENT:
         LOG.info('Parsing Equipment from %s ...', file_name)
@@ -201,7 +210,7 @@ def parse_equipment(cache: Cache):
 
                 stats = {}
 
-                for stat in Stats.EQUIPMENT:
+                for stat in EQUIPMENT_STATS:
                     if stat not in row:
                         continue
 
@@ -232,17 +241,17 @@ def parse_equipment(cache: Cache):
                     equipment['TypeEquipment'] = 'VISION'
 
                     if row['NumberArg1'] == '1':
-                        equipment['VisionClass'] = Visions.VISION_CLASS[equipment['$ID_NAME']]
+                        equipment['VisionClass'] = get_vision_class(equipment['$ID_NAME'])
                     else:
-                        equipment['VisionClass'] = Visions.VISION_CLASS[equipment['$ID_NAME'][:-4]]
+                        equipment['VisionClass'] = get_vision_class(equipment['$ID_NAME'][:-4])
 
                     # Base Effect
                     if 'AdditionalOption_1' in row and row['AdditionalOption_1'] != '':
-                        equipment['Bonus'].append(('VSN_BASE', cache.translate(xml.xpath(VISION_XPATH % row['AdditionalOption_1']).get('kr'))))
+                        equipment['Bonus'].append(('VSN_BASE', cache.translate(xml.xpath(__VISION_XPATH % row['AdditionalOption_1']).get('kr'))))
 
                     # Final Effect
                     if 'AdditionalOption_2' in row and row['AdditionalOption_2'] != '':
-                        equipment['Bonus'].append(('VSN_FINAL', cache.translate(xml.xpath(VISION_XPATH % row['AdditionalOption_2']).get('kr'))).replace(BOLDED, ''))
+                        equipment['Bonus'].append(('VSN_FINAL', cache.translate(xml.xpath(__VISION_XPATH % row['AdditionalOption_2']).get('kr'))).replace(__BOLD_FORMAT, ''))
 
                 # Hair Accessories
                 if row['ReqToolTip'][:-1] == '헤어 코스튬':
@@ -254,10 +263,10 @@ def parse_gems(cache: Cache):
     xml_path = join(cache.PATH_INPUT_DATA, 'xml.ipf', 'socket_property.xml')
 
     if exists(xml_path):
-        xml = XML.parse(xml_path, XML.XMLParser(recover = True))
+        xml = parse_xml(xml_path, XMLConfig(recover = True))
     else:
         LOG.warning('File not found: socket_property.xml')
-        xml = XML.Element('SocketProperty')
+        xml = xml_element('SocketProperty')
 
     for file_name in IES.GEM:
         LOG.info('Parsing Gems from %s ...', file_name)
@@ -418,7 +427,7 @@ def parse_items(cache: Cache):
                 item = __create_item(cache, row)
                 
                 if item['Type'] == 'CARD':
-                    item['IconTooltip'] = cache.parse_entity_icon(row['TooltipImage'])
+                    item['IconTooltip'] = cache.get_icon(row['TooltipImage'])
                     item['TypeCard']    = row['CardGroupName'].upper() if 'CardGroupName' in row else 'MASTER_CARD_ALBUM' # HOTFIX: Master Card Albums
 
                 if item['Type'] == 'CUBE':
@@ -501,7 +510,7 @@ def __create_item(cache: Cache, data: dict) -> dict:
     item['Stars']         = int(data['ItemStar'])
     item['Description']   = cache.translate(data['Desc']) if 'Desc' in data else None
     item['RequiredLevel'] = int(data['UseLv'])
-    item['Icon']          = cache.parse_entity_icon(data['Icon'])
+    item['Icon']          = cache.get_icon(data['Icon'])
     item['Weight']        = float(data['Weight'])
     item['Cooldown']      = float(int(data['ItemCoolDown']) / 1000)
     item['Expiration']    = float(data['LifeTime'])
@@ -519,7 +528,7 @@ def __create_item(cache: Cache, data: dict) -> dict:
 def __resolve_addatk(row: dict) -> int:
     value = 0 if row['Add_Damage_Atk'] == '' else int(row['Add_Damage_Atk'])
 
-    for stat in Stats.ADD_DAMAGE:
+    for stat in ADD_ATK_STATS:
         if row[stat] == '' or row[stat] == '0':
             continue
 
@@ -530,7 +539,7 @@ def __resolve_addatk(row: dict) -> int:
 def __resolve_addres(row: dict) -> int:
     value = 0 if row['ResAdd_Damage'] == '' else int(row['ResAdd_Damage'])
 
-    for stat in Stats.ADD_DAMAGE_RESISTANCE:
+    for stat in ADD_RES_STATS:
         if row[stat] == '' or row[stat] == '0':
             continue
 

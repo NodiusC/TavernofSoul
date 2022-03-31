@@ -109,27 +109,7 @@ class TOSParseCache():
         for file_name in self.data:
             self.export(file_name)
     
-    def get_npc(self, name: str):
-        if name in self.data['monsters']:
-            return self.data['monsters'][name], 'mon'
-        elif name in self.data['npcs']:
-            return self.data['npcs'][name], 'npc'
-        else:
-            return None
-        
-    def import_json(self, file_name: str):
-        if not exists(file_name):
-            logging.warning('File not found: %s', file_name)
-            return {}
-
-        try:
-            with open(file_name, 'r') as file:
-                return json.load(file)
-        except:
-            logging.warning('An error occurred while importing file \'%s\'', file_name)
-            return {}
-    
-    def parse_entity_icon(self, icon: str):
+    def get_icon(self, icon: str):
         if icon == '':
             return None
         
@@ -151,6 +131,26 @@ class TOSParseCache():
         else:
             logging.warning('The icon for \'%s\' is missing', icon)
             return icon
+    
+    def get_npc(self, name: str):
+        if name in self.data['monsters']:
+            return self.data['monsters'][name], 'mon'
+        elif name in self.data['npcs']:
+            return self.data['npcs'][name], 'npc'
+        else:
+            return None
+        
+    def import_json(self, file_name: str):
+        if not exists(file_name):
+            logging.warning('File not found: %s', file_name)
+            return {}
+
+        try:
+            with open(file_name, 'r') as file:
+                return json.load(file)
+        except:
+            logging.warning('An error occurred while importing file \'%s\'', file_name)
+            return {}
     
     def print_json(self, obj, file_name: str):
         with open(join(self.BASE_PATH_INPUT, file_name), 'w') as file:

@@ -13,6 +13,7 @@ import logging
 from os.path import exists, join
 
 from cache import TOSParseCache as Cache
+from constants.cost import ATTRIBUTE as ATTRIBUTE_COST
 
 LOG = logging.getLogger('Parse.Attributes')
 LOG.setLevel(logging.INFO)
@@ -30,18 +31,18 @@ def parse_account_attributes(cache: Cache):
         for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
             attribute = {}
 
-            attribute['$ID']         = row['ClassID']
-            attribute['$ID_NAME']    = row['ClassName']
-            attribute['Name']        = cache.translate(row['Name'])
-            attribute['Icon']        = cache.parse_entity_icon(row['Icon'])
+            attribute['$ID']      = row['ClassID']
+            attribute['$ID_NAME'] = row['ClassName']
+            attribute['Name']     = cache.translate(row['Name'])
+            attribute['Icon']     = cache.get_icon(row['Icon'])
 
             attribute['Type']     = 'ACCOUNT'
             attribute['MaxLevel'] = int(row['MaxLevel'])
 
-            attribute['CostType'] = 'ACCOUNT'
-
             attribute['Stat']  = row['BattlePropertyName'][:-3]
             attribute['Value'] = int(row['PointByLevel'])
+
+            attribute['CostType'] = 'ACCOUNT'
 
             cache.data['attributes'][attribute['$ID_NAME']] = attribute
 
@@ -63,7 +64,7 @@ def parse_attributes(cache: Cache):
             attribute['$ID']         = row['ClassID']
             attribute['$ID_NAME']    = row['ClassName']
             attribute['Name']        = cache.translate(row['Name'])
-            attribute['Icon']        = cache.parse_entity_icon(row['Icon'])
+            attribute['Icon']        = cache.get_icon(row['Icon'])
             attribute['Description'] = cache.translate(row['Desc'])
 
             attribute['Default']    = 'DEFAULT_ABIL' in row['Keyword']
@@ -103,28 +104,6 @@ def parse_attributes(cache: Cache):
 
             cache.data['attributes'][attribute['$ID_NAME']] = attribute
 
-__COST_TYPE = {
-    'ABIL_REINFORCE_PRICE'           : 'ENHANCE',
-    'HIDDENABIL_PRICE_COND_REINFORCE': 'ENHANCE_ARTS',
-    'ABIL_BASE_PRICE'                : 'BASIC',
-    'ABIL_ABOVE_NORMAL_PRICE'        : 'ADVANCED',
-    'ABIL_COMMON_PRICE_1LV'          : 'COMMON_001',
-    'ABIL_COMMON_PRICE_100LV'        : 'COMMON_100',
-    'ABIL_COMMON_PRICE_150LV'        : 'COMMON_150',
-    'ABIL_COMMON_PRICE_200LV'        : 'COMMON_200',
-    'ABIL_COMMON_PRICE_250LV'        : 'COMMON_250',
-    'ABIL_COMMON_PRICE_300LV'        : 'COMMON_300',
-    'ABIL_COMMON_PRICE_350LV'        : 'COMMON_350',
-    'ABIL_COMMON_PRICE_400LV'        : 'COMMON_400',
-    'HIDDENABIL_PRICE_COND_JOBLEVEL' : 'ARTS',
-    'ABIL_MASTERY_PRICE'             : '2H_SPEAR_MASTERY_PENETRATION',
-    'ABIL_NECROMANCER8_PRICE'        : 'CREATE_SHOGGOTH_ENLARGEMENT',
-    'ABIL_TOTALDEADPARTS_PRICE'      : 'NECROMANCER_CORPSE_FRAGMENT_CAPACITY',
-    'ABIL_SORCERER2_PRICE'           : 'SORCERER_SP_RECOVERY',
-    'ABIL_WARLOCK14_PRICE'           : 'INVOCATION_DEMON_SPIRIT',
-    'ABIL_6RANK_NORMAL_PRICE'        : 'CENTURION'
-}
-
 def __get_valid_attributes(cache: Cache):
     attributes = {}
     
@@ -155,7 +134,7 @@ def __get_valid_attributes(cache: Cache):
                     if row['ScrCalcPrice'] == 'ABIL_COMMON_PRICE' or (row['ScrCalcPrice'] == 'ABIL_REINFORCE_PRICE' and attribute['MaxLevel'] < 11):
                         row['ScrCalcPrice'] = 'ABIL_BASE_PRICE'
 
-                    attribute['CostType'] = __COST_TYPE[row['ScrCalcPrice']]
+                    attribute['CostType'] = ATTRIBUTE_COST[row['ScrCalcPrice']]
 
                 attribute['Unlock'][job['$ID_NAME']] = cache.translate(row['UnlockDesc'])
                     

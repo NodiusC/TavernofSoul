@@ -16,10 +16,10 @@ from os.path import exists, join
 
 from sympy import Float, Integer, jscode, symbols
 
-import constants.damage as Damage
 import constants.ies as IES
 import luautil
 from cache import TOSParseCache as Cache
+from constants.damage import of as parse_properties
 
 X = symbols('x') # Skill Level Variable
 
@@ -53,11 +53,11 @@ def parse_skills(cache: Cache):
 
                 skill['$ID']         = row['ClassID']
                 skill['Name']        = cache.translate(row['Name'])
-                skill['Icon']        = cache.parse_entity_icon(row['Icon'])
+                skill['Icon']        = cache.get_icon(row['Icon'])
                 skill['Description'] = cache.translate(row['Caption'])
                 skill['Details']     = cache.translate(row['Caption2'])
 
-                skill['TypeDamage']  = Damage.of(row) if row['ValueType'] == 'Attack' else ['BUFF']
+                skill['TypeDamage']  = parse_properties(row) if row['ValueType'] == 'Attack' else ['BUFF']
                 skill['AttackSpeed'] = row['AffectedByAttackSpeedRate'] == 'YES'
                 skill['Weapons']     = row['ReqStance']
                 skill['Riding']      = row['EnableCompanion'] in ['YES', 'BOTH']

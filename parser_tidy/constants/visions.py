@@ -3,7 +3,7 @@ VISION_CLASS = {
     'TSW04_126_1' : 1002, # Highlander       - Dual Sword
     'SWD04_126_5' : 1003, # Peltasta         - Serrated Shield
     'SPR04_127_1' : 1004, # Hoplite          - Javelin
-    # '' : 1006, # Barbarian        - 
+    'SWD04_126_8' : 1006, # Barbarian        - Wrath
     'TSP04_128_2' : 1007, # Cataphract       - Matchless
     'TSW04_126_2' : 1009, # Doppelsoeldner   - Wedge Blast
     'SWD04_126_1' : 1010, # Rodelero         - Escudo Espada
@@ -30,14 +30,14 @@ VISION_CLASS = {
     'TSF04_129_6' : 2011, # Elementalist     - Annihilate
     'STF04_127_4' : 2014, # Sage             - Distortion
     'TSF04_129_8' : 2015, # Warlock          - Demonische
-    # '' : 2016, # Featherfoot      - Blood
+    'TSF04_129_11': 2016, # Featherfoot      - Blood
     'STF04_127_3' : 2017, # Rune Caster      - Rune of Vigilance
     'TSF04_129_1' : 2019, # Shadowmancer     - Diffuse Reflection
     'TSF04_129_5' : 2020, # Onmyoji          - Red Tiger Claw
-    # '' : 2024, # Taoist           - Awakening
+    'TSF04_129_10': 2024, # Taoist           - Awakening
     'TSF04_129_4' : 2022, # Bokor            - Lewa Advent
     'TSF04_129'   : 2023, # Terramcner       - Stone-Slinger
-    # '' : 2024, # Keraunos         - Electric Flow
+    'TSF04_129_9' : 2024, # Keraunos         - Electric Flow
 
     # Archer
     # '' : 3002, # Hunter           - 
@@ -95,3 +95,6 @@ VISION_CLASS = {
     'DAG04_123_5' : 5016, # Clown            - Ecliptic Blades
     'PST04_122_5' : 5017, # Hakkapeliitta    - Carbine
 }
+
+def get_class(vision: str):
+    return VISION_CLASS[vision]

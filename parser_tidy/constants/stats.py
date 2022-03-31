@@ -91,6 +91,7 @@ EQUIPMENT = [
     'MSTA',                # Stamina
     'RHP',                 # HP Recovery
     'RSP',                 # SP Recovery
+    # 'RSTA',              # Stamina Recovery (Legacy)
     'SR',                  # AoE Attack Ratio
     'SDR',                 # AoE Defense Ratio
     'SkillRange',          # Attack Range
