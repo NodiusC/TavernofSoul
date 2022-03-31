@@ -20,7 +20,7 @@ import buff
 import effects
 import items
 import items_static
-import jobs
+import classes
 import luautil
 import maps
 import misc
@@ -74,7 +74,7 @@ if __name__ == '__main__':
     
     asset.parse(cache)
 
-    jobs.parse(cache)
+    classes.parse_classes(cache)
 
     effects.parse(cache)
 

@@ -29,7 +29,7 @@ from constants.stats import (
     COLLECTION            as COLLECTION_STATS,
     EQUIPMENT             as EQUIPMENT_STATS
 )
-from constants.visions import get_class as get_vision_class
+from constants.visions import VISION_TO_CLASS
 
 TRADE = ['Shop', 'Market', 'Team', 'User']
 TREE  = ['Char1', 'Char2', 'Char3', 'Char4', 'Char5']
@@ -240,10 +240,7 @@ def parse_equipment(cache: Cache):
                 if equipment['TypeEquipment'] == 'ARCANE':
                     equipment['TypeEquipment'] = 'VISION'
 
-                    if row['NumberArg1'] == '1':
-                        equipment['VisionClass'] = get_vision_class(equipment['$ID_NAME'])
-                    else:
-                        equipment['VisionClass'] = get_vision_class(equipment['$ID_NAME'][:-4])
+                    equipment['VisionClass'] = VISION_TO_CLASS[equipment['$ID_NAME'][:None if row['NumberArg'] == '1' else -4]]
 
                     # Base Effect
                     if 'AdditionalOption_1' in row and row['AdditionalOption_1'] != '':
