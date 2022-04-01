@@ -35,7 +35,6 @@ WHITELIST_BASESKINSET = [
     'wearing_weapon',
     'npccard',
     'goddesscard',
-    'worldmap_image',
 ]
 
 WHITELIST_RGB = [
@@ -43,7 +42,6 @@ WHITELIST_RGB = [
     'sub_card3',
     'npccard',
     'goddesscard',
-    'worldmap_image',
 ]
 
 def parse(c = None):
@@ -51,11 +49,17 @@ def parse(c = None):
         logging.warn("c is none")
         c = Cache()
         c.build()
+    logging.basicConfig(level=logging.DEBUG)
 
-    try:
-        os.mkdir(c.PATH_BUILD_ASSETS_ICONS)
-    except:
-        pass
+    logging.info('Parsing assets...')
+    parse_icons('baseskinset.xml',c)
+    parse_icons('classicon.xml',c)
+    parse_icons('itemicon.xml',c)
+    parse_icons('mongem.xml',c)
+    parse_icons('monillust.xml',c)
+    parse_icons('skillicon.xml',c)
+
+
 
     logging.debug('--- Parsing Assets ---')
 
@@ -70,27 +74,37 @@ def parse_icons(file_name, c):
     logging.debug('Parsing File: {}'.format(file_name))
 
     data_path = join(c.PATH_INPUT_DATA, 'ui.ipf', 'baseskinset', file_name)
-    
+
     if not exists(data_path):
         logging.warn("{} does not exist".format(data_path))
         return
-    
+
+    #data_path = os.path.join(globals.PATH_INPUT_DATA, 'ui.ipf', 'baseskinset', file_name)
+    logging.warning(file_name)
+    try:
+        data_path = c.file_dict[file_name.lower()]['path']
+    except:
+        data_path = os.path.join(c.PATH_INPUT_DATA, 'ui.ipf', 'baseskinset', file_name)
+        pass
+    if (not exists(data_path)):
+        logging.warn("{} not exists".format(data_path))
+        return
     data = ET.parse(data_path).getroot()
     data = [(image, imagelist) for imagelist in data for image in imagelist]
 
     for work in data:
         parse_icons_step(file_name, work, c)
 
-def parse_icons_step(file_name, work, c):     
+def parse_icons_step(file_name, work, c):
     image          = work[0]
     image_category = work[1].get('category')
 
     if image.get('file') is None or image.get('name') is None:
         return
-    
+
     if file_name == 'baseskinset.xml' and image_category not in WHITELIST_BASESKINSET:
         return
-    
+
     file_name       = join(c.PATH_INPUT_DATA, 'ui.ipf', 'baseskinset', file_name.lower())
     image_extension = '.jpg' if image_category in WHITELIST_RGB else '.png'
     image_file      = image.get('file').split('\\')[-1]

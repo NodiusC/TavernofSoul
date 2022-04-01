@@ -74,20 +74,20 @@ def parse_collections(cache: Cache):
 
             if 'Collectables' not in collection:
                 collection['Collectables'] = []
-            
+
             # Parse Collectible Items
             for i in range(1, 10):
                 item = row['ItemName_%s' % i]
 
                 if item == '':
                     continue
-                
+
                 if item not in cache.data['items']:
                     LOG.warning('Collectible Item Missing: %s', item)
                     continue
 
                 collection['Collectables'].append(item)
-            
+
             if 'Bonus' not in collection:
                 collection['Bonus'] = {}
 
@@ -177,7 +177,7 @@ def parse_equipment(cache: Cache):
         with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
             for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
                 equipment = __create_item(cache, row)
-                
+
                 equipment['Type']          = 'EQUIPMENT'
                 equipment['TypeAttack']    = row['AttackType']
                 equipment['TypeEquipment'] = row['ClassType'].upper()
@@ -190,7 +190,7 @@ def parse_equipment(cache: Cache):
                 # Generate attack and defense of equipment into data
                 if row['RefreshScp'] != '':
                     LUA_RUNTIME[row['RefreshScp']](row)
-                
+
                 equipment['MAXPATK'] = int(row['MAXATK']) if 'MAXATK' in row else 0
                 equipment['MINPATK'] = int(row['MINATK']) if 'MINATK' in row else 0
                 equipment['MATK']    = int(row['MATK'])   if 'MATK'   in row else 0
@@ -220,7 +220,7 @@ def parse_equipment(cache: Cache):
                     else:
                         if row[stat] == '' or row[stat] == '0':
                             continue
-                        
+
                         value = int(row[stat])
 
                     stats[stat] = value
@@ -230,7 +230,7 @@ def parse_equipment(cache: Cache):
                 # Non-Stat Bonuses
                 if row['OptDesc'] != '':
                     equipment['Bonus'].append(('', cache.translate(row['OptDesc'])))
-                
+
                 equipment['model'] = parse_xac.eq_model_name(row, cache)
 
                 # Visions
@@ -264,7 +264,7 @@ def parse_gems(cache: Cache):
 
     for file_name in IES.GEM:
         LOG.info('Parsing Gems from %s ...', file_name)
-        
+
         ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
 
         if not exists(ies_path):
@@ -331,7 +331,7 @@ def parse_gems(cache: Cache):
                         stats[lose][level] = prop.get('PropList_MainOrSubWeapon_Penalty')[slice_lose:]
 
                     gem['Stats'] = stats
-                
+
                 cache.data['items'][gem['$ID_NAME']] = gem
 
 def parse_goddess_equipment(cache: Cache):
@@ -362,15 +362,15 @@ def parse_goddess_equipment(cache: Cache):
             continue
 
         LUA_RUNTIME[f](materials)
-    
-    a = materials[460] 
+
+    a = materials[460]
 
     materials[460]  = {'armor' : a}
 
     cache.data['goddess_reinf_mat'] = materials
-    
+
     ies_list = {
-        'item_goddess_reinforce.ies'    : 460, 
+        'item_goddess_reinforce.ies'    : 460,
         'item_goddess_reinforce_470.ies': 470
     }
 
@@ -419,7 +419,7 @@ def parse_items(cache: Cache):
         with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
             for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
                 item = __create_item(cache, row)
-                
+
                 if item['Type'] == 'CARD':
                     item['IconTooltip'] = cache.get_icon(row['TooltipImage'])
                     item['TypeCard']    = row['CardGroupName'].upper() if 'CardGroupName' in row else 'MASTER_CARD_ALBUM' # HOTFIX: Master Card Albums
@@ -433,15 +433,15 @@ def parse_items(cache: Cache):
                 # HOTFIX: 2021 Savinose Dysnai
                 if item['Type'] in ['ARMOR', 'WEAPON'] and re.match('^2021_NewYear_Disnai_.+_box$', row['ClassName']):
                     item['Type'] = 'PREMIUM'
-                
+
                 # HOTFIX: Event Weapon Boxes
                 if item['Type'] == 'WEAPON' and re.match('^(?:(?!2021).)*_?(?:box|SelectBox)_?.*$', row['ClassName']):
                     item['Type'] = 'EVENT'
-                
+
                 # HOTFIX: [Event] Enchant Jewel Box
                 if item['Type'] == 'CONSUME':
                     item['Type'] = 'EVENT'
-                
+
                 cache.data['items'][item['$ID_NAME']] = item
 
 def parse_recipes(cache: Cache):
@@ -464,7 +464,7 @@ def parse_recipes(cache: Cache):
             recipe['Name'] = 'Recipe - %s' % cache.data['items'][row['TargetItem']]['Name']
 
             product = {}
-            
+
             product['Item']     = row['TargetItem']
             product['Quantity'] = int(row['TargetItemCnt'])
 
@@ -478,16 +478,16 @@ def parse_recipes(cache: Cache):
 
                 if item == '':
                     continue
-                
+
                 if item not in cache.data['items']:
                     LOG.warning('Recipe Material for %s Missing: %s', row['TargetItem'], item)
                     continue
 
                 material = {}
-                
+
                 material['Item']     = item
                 material['Quantity'] = int(row['Item_%s_1_Cnt' % i])
-                    
+
                 recipe['Materials'].append(material)
 
             cache.data['items'][recipe['$ID_NAME']] = recipe
@@ -538,7 +538,7 @@ def __resolve_addres(row: dict) -> int:
             continue
 
         value += int(row[stat])
-    
+
     return value
 
 def __resolve_maxsta(row: dict) -> int:

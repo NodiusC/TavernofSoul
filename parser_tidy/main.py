@@ -49,11 +49,11 @@ if __name__ == '__main__':
         if region not in SUPPORTED_REGIONS:
             logging.warning('Region has not been supported yet')
             quit()
-        
+
     except:
         logging.warning('Missing Argument: Region')
         quit()
-    
+
     cache = Cache()
 
     current = read_version('parser_version.csv')
@@ -62,7 +62,7 @@ if __name__ == '__main__':
     if latest[region] == current[region] and '-f' not in sys.argv:
         logging.warning('The parsed data is already update to date.')
         quit()
-        
+
     cache.build(region)
 
     parse_xac.parse_xac(cache)
@@ -71,7 +71,7 @@ if __name__ == '__main__':
 
     if region in TRANSLATE_REGIONS:
         translation.parse_translations(cache)
-    
+
     asset.parse(cache)
 
     classes.parse_classes(cache)
@@ -100,13 +100,13 @@ if __name__ == '__main__':
     items.parse_books       (cache) # Parse Books
 
     sets.parse_equipment_sets(cache) # Parse Equipment Sets
-    
+
     items_static.insert_static(cache)
-    
+
     items.parse_goddess_equipment(cache)
-    
+
     monsters.parse(cache)
-    
+
     maps.parse(cache)
     maps.parse_maps_images(cache) #run map_image.py with py2.7 before running this
     maps.parse_links(cache)
@@ -117,6 +117,6 @@ if __name__ == '__main__':
     current[region] = latest[region]
 
     print_version('parser_version.csv', latest)
-    
+
     with open(join(cache.BASE_PATH_OUTPUT, 'version.json'), 'w') as file:
         json.dump({'version': "%s_001001.ipf" % (latest)}, file)

@@ -42,20 +42,20 @@ LUA_OVERRIDE = [
         return transcend;\
     end',
     '''
-    function IS_WEAPON_TYPE(type)  
-        if (type ~= "Boots") then       
-            return false                    
-        end                             
-        if (type ~= "Gloves") then 
-            return false                    
-        end                             
-        if (type ~= "Pants") then  
-            return false                    
-        end                             
-        if (type ~= "Shirt") then  
-            return false                    
-        end                                         
-        return true                                            
+    function IS_WEAPON_TYPE(type)
+        if (type ~= "Boots") then
+            return false
+        end
+        if (type ~= "Gloves") then
+            return false
+        end
+        if (type ~= "Pants") then
+            return false
+        end
+        if (type ~= "Shirt") then
+            return false
+        end
+        return true
     end
     ''',
     'function GetZoneName() return nil end',
@@ -67,12 +67,12 @@ LUA_OVERRIDE = [
     'function IsServerObj(item) return 0 end',
     '''
     function SCR_GET_SPEND_ITEM_Alchemist_SprinkleHPPotion(pc)
-        return GetClassByType('Item', 641219), 641219 
+        return GetClassByType('Item', 641219), 641219
     end
     ''',
     '''
     function SCR_GET_SPEND_ITEM_Alchemist_SprinkleSPPotion(pc)
-        return GetClassByType('Item', 641233), 641233 
+        return GetClassByType('Item', 641233), 641233
     end
     ''',
     'function GetAbilityAddSpendValue(pc, ClassName, CD) return 0 end',
@@ -93,32 +93,8 @@ LUA_OVERRIDE = [
         end
         return t
     end
-    ''',
-    # '''
-    # function SyncFloor(item)
-    #     return item
-    # end
-    # ''',
     '''
-    function SCR_Get_DEFAULT_MAXPATK(pc, value)
-        return 100
-    end
-    ''',
-    '''
-    function SCR_Get_DEFAULT_MINPATK(pc, value)
-        return 100
-    end
-    ''',
-    '''
-    function SCR_CALC_BASIC_MDEF(pc, value)
-        return 100
-    end
-    ''',
-    '''
-    function get_hp_recovery_ratio(pc, value)
-        return 100
-    end
-    '''
+
 ]
 
 LUA_RUNTIME = None
@@ -131,7 +107,7 @@ def attr_getter(obj, name):
             return int(obj[name])
         else:
             return obj[name]
-    
+
     return 0
 
 def attr_setter(obj, name, value):
@@ -164,41 +140,48 @@ def init_global_data(cache: Cache):
     ies_ADD = LUA.execute('''
         ies_by_ClassID = {}
         ies_by_ClassName = {}
-        
+
         function ies_ADD(key, data)
             _by_ClassID = {}
             _by_ClassName = {}
-            
+
             if ies_by_ClassID[key] ~= nil then
                 _by_ClassID = ies_by_ClassID[key]
             end
             if ies_by_ClassName[key] ~= nil then
                 _by_ClassName = ies_by_ClassName[key]
             end
-            
+
             for i, row in python.enumerate(data) do
                 _by_ClassID[math.floor(row["ClassID"])] = row
                 _by_ClassName[row["ClassName"]] = row
             end
-            
+
             ies_by_ClassID[key] = _by_ClassID
             ies_by_ClassName[key] = _by_ClassName
         end
-        
+
         return ies_ADD
     ''')
 
-    ies_ADD('ancient', iesutil.load('Ancient_Info.ies',cache))
-    ies_ADD('ancient_info', iesutil.load('Ancient_Info.ies',cache))
-
-    for i in IES.EQUIPMENT:
-        try:
-            ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', i.lower())
-        except:
-            continue
+    ies_ADD('ancient', iesutil.load('Ancient_Info.ies',c))
+    ies_ADD('ancient_info', iesutil.load('Ancient_Info.ies',c))
+    ies_ADD('item', iesutil.load('item_equip.ies',c))
+    ies_ADD('item', iesutil.load('item_Equip_EP12.ies',c))
+    ies_ADD('increasecost', iesutil.load('item_IncreaseCost.ies',c))
+    ies_ADD('item_grade', iesutil.load('item_grade.ies',c))
+    ies_ADD('item_growth', iesutil.load('item_growth.ies',c))
+    ies_ADD('monster', iesutil.load('monster.ies',c))
+    ies_ADD('monster', iesutil.load('monster_event.ies',c))
+    ies_ADD('monster', iesutil.load('Monster_solo_dungeon.ies',c))
+    ies_ADD('stat_monster', iesutil.load('statbase_monster.ies',c))
+    ies_ADD('stat_monster_race', iesutil.load('statbase_monster_race.ies',c))
+    ies_ADD('stat_monster_type', iesutil.load('statbase_monster_type.ies',c))
+    ies_ADD('skillrestrict', iesutil.load('skill_restrict.ies',c))
+    #skill_restrict.ies
 
         ies_ADD('item', iesutil.load(i, cache))
-        
+
     ies_ADD('increasecost',      iesutil.load('item_IncreaseCost.ies',     cache))
     ies_ADD('item_grade',        iesutil.load('item_grade.ies',            cache))
     ies_ADD('item_growth',       iesutil.load('item_growth.ies',           cache))
@@ -215,15 +198,15 @@ def init_global_functions():
         app = {
             IsBarrackMode = function() return false end
         }
-        
+
         exchange = {
             GetExchangeItemInfoByGuid = function(guid) end
         }
-        
+
         geTime = {
             GetServerSystemTime = function()
                 local date = os.date("*t")
-                
+
                 return {
                     wDay = date.day,
                     wMonth = date.month,
@@ -231,25 +214,25 @@ def init_global_functions():
                 }
             end
         }
-        
+
         session = {
             GetEquipItemByGuid = function(guid) end,
             GetEtcItemByGuid = function(guid) end,
             GetInvItemByGuid = function(guid) end,
-            
+
             link = {
                 GetGCLinkObject = function(guid) end
             },
-            
+
             market = {
                 GetCabinetItemByItemObjID = function(itemID) end,
                 GetItemByItemID = function(itemID) end
             },
-            
+
             otherPC = {
                 GetItemByGuid = function(guid) end
             },
-            
+
             pet = {
                 GetPetEquipObjByGuid = function(guid) end
             },
@@ -258,8 +241,8 @@ def init_global_functions():
                 GetPartyMemberList = function(guid) end
             }
         }
-    
-        
+
+
         function GetClassByNumProp(ies_key, column, value)
             local data = ies_by_ClassID[string.lower(ies_key)]
             for id, row in pairs(data) do
@@ -268,7 +251,7 @@ def init_global_functions():
                 end
             end
         end
-        
+
         function GetClass(ies_key, name)
             local data = ies_by_ClassName[string.lower(ies_key)]
             return data[name]
@@ -277,7 +260,7 @@ def init_global_functions():
             local data = ies_by_ClassID[string.lower(ies_key)]
             return data[math.floor(id)]
         end
-        
+
         function GetClassList(ies_key)
             return ies_by_ClassID[string.lower(ies_key)]
         end
@@ -288,7 +271,7 @@ def init_global_functions():
                 end
             end
         end
-        
+
         function MinMaxCorrection(value, min, max)
             if value < min then
                 return min
@@ -298,7 +281,7 @@ def init_global_functions():
                 return value
             end
         end
-        
+
         -- http://lua-users.org/wiki/SplitJoin @PeterPrade
         function StringSplit(text, delimiter)
            local list = {}
@@ -318,8 +301,13 @@ def init_global_functions():
            end
            return list
         end
-        
-        
+
+
+
+        function SyncFloor(number)
+            return math.floor(number)
+        end
+
         -- https://stackoverflow.com/a/664557 some LUA table helper functions
         function table.set(t) -- set of list
           local u = { }
@@ -334,36 +322,26 @@ def init_global_functions():
           end
           return nil
         end
-        
+
         function TryGetProp(item, prop, default)
             if item == nil then
                 return default
             end
-            
+
             local value = item[prop]
-            
+
             if tonumber(value) ~= nil then
                 return tonumber(value)
             end
-            
+
             if value ~= nil then
                 return value
             else
                 return default
             end
         end
-        
-        function SyncFloor(item)
-            return item
-        end
-        
-        function get_TC_goddess(itemLv, classType, curCount, transcendCount)
-            mat = item_goddess_transcend.get_material_list(itemLv, classType, curCount, transcendCount)
-            if mat ==nil then
-                return 0
-            end
-            return mat
-        end
+
+
     ''' + '\n'.join(LUA_OVERRIDE))
 
 def init_runtime(cache: Cache):
@@ -400,7 +378,7 @@ def init_runtime(cache: Cache):
                             line = re.sub(r'\[\"(\w*?)\"\]', r"['\1']", line)                           # Replace double quote with single quote
                             line = re.sub(r'local \w+ = require[ (]["\']\w+["\'][ )]*', '', line)       # Remove require statements
                             line = re.sub(r'function (\w+):(\w+)\((.*)\)', r'function \1.\2(\3)', line) # Replace function a:b with function a.b
-                            
+
                             if len(line) == 0:
                                 continue
 
@@ -412,13 +390,14 @@ def init_runtime(cache: Cache):
                                     continue
 
                                 lua_function = []
-                            
+
                             lua_function.append(line)
-                        
+
                         lua_function_load(lua_function)
 
                     except LuaError as error:
-                        logging.debug('Failed to load %s\nError: %s', file_path, error)
+                        logging.warn('Failed to load %s, error: %s...', file_path, error)
+                        err.append(lua_function)
                         continue
 
 def destroy():

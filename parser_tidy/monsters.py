@@ -56,7 +56,7 @@ def parse(cache: Cache = None):
         cache = Cache()
 
         cache.build('jtos')
-    
+
     luautil.init(cache)
 
     parse_statbase(cache, 'monster_const.ies',         monster_constants)
@@ -86,7 +86,7 @@ def parse_drops(cache: Cache):
             for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
                 if row['ItemClassName'] == '':
                     continue
-                
+
                 if row['ItemClassName'] not in cache.data['items']:
                     LOG.warning('Item Drop Missing: %s', row['ItemClassName'])
                     continue
@@ -177,7 +177,7 @@ def parse_monsters(cache: Cache, file_name: str):
                 monster['Stat_Evasion']          = int(LUA_RUNTIME['SCR_Get_MON_DR'](row))
                 monster['Stat_BlockPenetration'] = int(LUA_RUNTIME['SCR_Get_MON_BLK_BREAK'](row))
                 monster['Stat_BlockRate']        = int(LUA_RUNTIME['SCR_Get_MON_BLK'](row))
-                
+
                 monster['Link_Items'] = []
                 monster['Link_Maps']  = []
 

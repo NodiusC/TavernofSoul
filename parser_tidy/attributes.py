@@ -106,7 +106,7 @@ def parse_attributes(cache: Cache):
 
 def __get_valid_attributes(cache: Cache):
     attributes = {}
-    
+
     for job in cache.data['classes']:
         attribute_file = 'ability_%s.ies' % job['InternalName']
 
@@ -137,7 +137,7 @@ def __get_valid_attributes(cache: Cache):
                     attribute['CostType'] = ATTRIBUTE_COST[row['ScrCalcPrice']]
 
                 attribute['Unlock'][job['$ID_NAME']] = cache.translate(row['UnlockDesc'])
-                    
+
                 attributes[row['ClassName']] = attribute
 
     return attributes
@@ -147,7 +147,7 @@ def __populate(attribute: dict, attribute_type: str, max_lv: int, jobs: list, un
     attribute['MaxLevel'] = max_lv
 
     attribute['Unlock'] = dict.fromkeys(jobs, unlock)
-    
+
     attribute['BaseCost']   = cost
     attribute['CostFactor'] = cost
     attribute['LevelCost']  = cost
