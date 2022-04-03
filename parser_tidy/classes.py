@@ -5,34 +5,34 @@ IES Parser for Classes.
 @credit: Temperantia, Nodius
 """
 
-import csv
-import logging
+from csv import DictReader as IESReader
+from logging import getLogger
 from os.path import exists, join
+from typing import Callable
 
-from cache import TOSParseCache as Cache
+LOG = getLogger('Parse.Classes')
 
-LOG = logging.getLogger('Parse.Classes')
-LOG.setLevel(logging.INFO)
-
-def parse_classes(cache: Cache):
+def parse_classes(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
     LOG.info('Parsing Classes from job.ies ...')
 
-    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'job.ies')
+    ies_path = join(root, 'ies.ipf', 'job.ies')
 
     if not exists(ies_path):
         LOG.warning('File not found: job.ies')
         return
+    
+    class_data = data['classes']
 
     with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
-        for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
+        for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
             job = {}
 
             job['$ID']          = row['ClassID']
             job['$ID_NAME']     = row['ClassName']
-            job['Name']         = cache.translate(row['Name'])
+            job['Name']         = translate(row['Name'])
             job['InternalName'] = row['EngName']
-            job['Icon']         = cache.get_icon(row['Icon'])
-            job['Description']  = cache.translate(row['Caption1'])
+            job['Icon']         = find_icon(row['Icon'])
+            job['Description']  = translate(row['Caption1'])
             job['Tree']         = row['CtrlType']
 
             job['Starter']  = row['Rank'] == '1'
@@ -47,4 +47,4 @@ def parse_classes(cache: Cache):
 
             job['Costume'] = row['DefaultCostume']
 
-            cache.data['classes'][job['$ID_NAME']] = job
+            class_data[job['$ID_NAME']] = job
