@@ -2,7 +2,7 @@
 IES Parser for Classes.
 
 @author: Temperantia
-@credit: Temperantia, Nodius
+@credit: rjgtav, Temperantia, Nodius
 """
 
 from csv import DictReader as IESReader

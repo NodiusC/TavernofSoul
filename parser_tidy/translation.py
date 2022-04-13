@@ -13,7 +13,7 @@ import glob
 import logging
 from os.path import exists, join, normpath, sep
 
-from lxml import etree as XML
+from lxml.html import parse as parse_xml
 
 from cache import TOSParseCache as Cache
 
@@ -47,17 +47,16 @@ def parse_translations(cache: Cache):
         return
 
     dictionary = {}
+    
+    soup = parse_xml(xml_path).getroot()
 
-    with open(xml_path, 'r', encoding = 'utf-8', errors = 'replace') as xml_file:
-        xml = XML.parse(xml_file, XML.XMLParser(recover = True, huge_tree = True))
+    for data in soup.iter('dic_data'):
+        id = data.get('id')
+        kr = data.get('kr')
 
-        for data in xml.iter('dic_data'):
-            id = data.get('ID')
-            kr = data.get('kr')
+        if id not in translations:
+            LOG.warning('Translation not found (%s): %s', id, kr)
 
-            if id not in translations:
-                LOG.warning('Translation not found (%s): %s', id, kr)
-
-            dictionary[kr] = translations[id] if id in translations else id
+        dictionary[kr] = translations[id] if id in translations else id
 
     cache.data['dictionary'] = dictionary

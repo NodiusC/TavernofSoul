@@ -58,9 +58,9 @@ def getModelPrefixAdv(i):
     
     return "{}_{}".format(job, gender)
 
-def eq_model_name(item, c):
+def eq_model_name(item, data):
     #item = c.data['items']['0511004019'] # Please use ClassName if updated
-    xac = c.data['xac']
+    xac = data['xac']
     if 'Icon' not in item:
         return ''
     model_name = item['FileName']

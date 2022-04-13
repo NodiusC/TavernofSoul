@@ -10,9 +10,10 @@ Created on Mon Sep 20 09:20:20 2021
 """
 
 import json
-import logging
-from os import mkdir
+from logging import getLogger
 from os.path import exists, join
+
+LOG = getLogger('Parse')
 
 class TOSParseCache():
     REGION                        = None
@@ -21,11 +22,9 @@ class TOSParseCache():
     STATIC_ROOT                   = None
     PATH_BUILD_ASSETS_ICONS       = None
     PATH_BUILD_ASSETS_IMAGES_MAPS = None
-    PATH_BUILD_ASSETS_MODELS      = None
     PATH_INPUT_DATA               = None
     PATH_INPUT_DATA_LUA           = None
     TRANSLATION_PATH              = None
-    CONVERTER_PATH                = join('XAC', 'XAC2DAE.jar')
 
     REGIONS = {
         'itos' : 'English',
@@ -42,10 +41,9 @@ class TOSParseCache():
        'cube_contents'     : {},
        'equipment_sets'    : {},
        'legend_sets'       : {},
+       'arcane'            : {},
        'classes'           : {},
-       'class_skills'      : {},
        'attributes'        : {},
-       'attribute_groups'  : {},
        'skills'            : {},
        'skill_effects'     : {},
        'monsters'          : {},
@@ -60,12 +58,7 @@ class TOSParseCache():
        'map_item_spawn'    : [],
        'grade_ratios'      : {},
        'buff'              : {},
-       'achievements'      : {},
-       'charxp'            : {},
-       'petxp'             : {},
-       'assisterxp'        : {},
-       'goddess_reinf_mat' : {},
-       'goddess_reinf'     : {}
+       'achievements'      : {}
     }
     
     def build(self, region: str):
@@ -75,29 +68,13 @@ class TOSParseCache():
         self.BASE_PATH_OUTPUT                = join('..', 'TavernofSoul', 'JSON_%s' % (self.REGION))
         self.STATIC_ROOT                     = join('..', 'TavernofSoul', 'staticfiles_itos')
 
-        self.PATH_BUILD_ASSETS_ICONS         = join(self.STATIC_ROOT, 'icons')
-        self.PATH_BUILD_ASSETS_IMAGES_MAPS   = join(self.STATIC_ROOT, 'maps')
-        self.PATH_BUILD_ASSETS_MODELS        = join(self.STATIC_ROOT, 'models')
-        
-        try:
-            mkdir(self.PATH_BUILD_ASSETS_ICONS) 
-        except:
-            pass
-
-        try:
-            mkdir(self.PATH_BUILD_ASSETS_IMAGES_MAPS)
-        except:
-            pass
-
-        try:
-            mkdir(self.PATH_BUILD_ASSETS_MODELS) 
-        except:
-            pass
+        self.PATH_BUILD_ASSETS_ICONS       = join(self.STATIC_ROOT, 'icons')
+        self.PATH_BUILD_ASSETS_IMAGES_MAPS = join(self.STATIC_ROOT, 'maps')
         
         self.PATH_INPUT_DATA     = join('..', '%s_unpack' % (self.REGION))
         self.PATH_INPUT_DATA_LUA = join('..', '%s_unpack' % (self.REGION))
 
-        self.TRANSLATION_PATH    = join('..', 'Translation', self.REGIONS[self.REGION]) if self.REGION in self.REGIONS else '.'
+        self.TRANSLATION_PATH = join('..', 'Translation', self.REGIONS[self.REGION]) if self.REGION in self.REGIONS else '.'
         
         for i in self.data_build:
             self.data[i] = self.import_json(join(self.BASE_PATH_INPUT, '%s.json' % (i)))
@@ -109,7 +86,7 @@ class TOSParseCache():
         for file_name in self.data:
             self.export(file_name)
     
-    def get_icon(self, icon: str):
+    def find_icon(self, icon: str) -> str:
         if icon == '':
             return None
         
@@ -129,7 +106,7 @@ class TOSParseCache():
         if icon_found is not None:
             return self.data['assets_icons'][icon_found]
         else:
-            logging.warning('The icon for \'%s\' is missing', icon)
+            LOG.warning('The icon for \'%s\' is missing', icon)
             return icon
     
     def get_npc(self, name: str):
@@ -142,14 +119,14 @@ class TOSParseCache():
         
     def import_json(self, file_name: str):
         if not exists(file_name):
-            logging.warning('File not found: %s', file_name)
+            LOG.warning('File not found: %s', file_name)
             return {}
 
         try:
             with open(file_name, 'r') as file:
                 return json.load(file)
         except:
-            logging.warning('An error occurred while importing file \'%s\'', file_name)
+            LOG.warning('An error occurred while importing file \'%s\'', file_name)
             return {}
     
     def print_json(self, obj, file_name: str):
@@ -164,24 +141,24 @@ class TOSParseCache():
         
         return a
     
-    def translate(self, key: str):
+    def translate(self, text: str) -> str:
         if self.TRANSLATION_PATH == None:
-            return self.data['dictionary'][key]
+            return self.data['dictionary'][text]
 
-        key = key.replace('"', '')
+        text = text.replace('"', '')
 
         if (self.data['dictionary'] == {}):
-            logging.debug('The dictionary is empty')
-            return key
+            LOG.debug('The dictionary is empty')
+            return text
         
         if not self.data['dictionary']:
-            return key
+            return text
         
-        if key != '' and key not in self.data['dictionary']:
-            logging.debug('The translation for key \'%s\' is missing', key)
-            return key
+        if text != '' and text not in self.data['dictionary']:
+            LOG.debug('The translation for key \'%s\' is missing', text)
+            return text
 
-        if key == '':
+        if text == '':
             return ''
         
-        return self.data['dictionary'][key]
+        return self.data['dictionary'][text]

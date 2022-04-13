@@ -11,18 +11,13 @@ Created on Mon Sep 20 11:18:38 2021
 from csv import DictReader as IESReader
 from logging import getLogger
 from os.path import exists, join
-from re import findall, match
+from re import findall, match, split
 from typing import Callable
 
-from lxml.etree import (
-    Element   as xml_element,
-    parse     as parse_xml,
-    XMLParser as XMLConfig
-)
+from lxml.html import parse as parse_xml, Element as xml_element
 
 import constants.ies as IES
 import luautil
-from cache import TOSParseCache as Cache
 from constants.item import (
     ADD_DAMAGE_STATS            as ADD_ATK_STATS,
     ADD_DAMAGE_RESISTANCE_STATS as ADD_RES_STATS,
@@ -34,17 +29,38 @@ from constants.item import (
 
 LOG = getLogger('Parse.Items')
 
-__TREES        = ['Char1', 'Char2', 'Char3', 'Char4', 'Char5']
-__VISION_XPATH = './dic_data[contains(@FilenameWithKey, \'tooltip_%s_Data_0\')]'
-__BOLD_FORMAT  = '{nl} {nl}{@st66d}{s15}'
+def parse_aether_gems(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
+    GEM_IES         = IES.GEM_AETHER
 
-def parse_books(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
-    LOG.info('Parsing Books from dialogtext.ies ...')
-
-    ies_path = join(root, 'ies_client.ipf', 'dialogtext.ies')
+    LOG.info('Parsing Aether Gems from %s ...', GEM_IES)
+        
+    ies_path = join(root, 'ies.ipf', GEM_IES)
 
     if not exists(ies_path):
-        LOG.warning('File not found: dialogtext.ies')
+        LOG.warning('File not found: %s', GEM_IES)
+        return
+
+    item_data = data['items']
+
+    with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
+        for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
+            gem = __create_item(row, translate, find_icon)
+
+            gem['Type']    = 'GEM'
+            gem['TypeGem'] = 'GEM_AETHER'
+            gem['Stat']    = row['StringArg']
+
+            item_data[gem['$ID_NAME']] = gem
+
+def parse_books(root: str, data: dict, translate: Callable[[str], str]):
+    BOOK_IES = IES.BOOK_TEXT
+
+    LOG.info('Parsing Books from %s ...', BOOK_IES)
+
+    ies_path = join(root, 'ies_client.ipf', BOOK_IES)
+
+    if not exists(ies_path):
+        LOG.warning('File not found: %s', BOOK_IES)
         return
     
     item_data = data['items']
@@ -57,13 +73,15 @@ def parse_books(root: str, data: dict, translate: Callable[[str], str], find_ico
             # Parse Book Text
             item_data[row['ClassName']]['Text'] = translate(row['Text'])
 
-def parse_collections(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
-    LOG.info('Parsing Collections from collection.ies ...')
+def parse_collections(root: str, data: dict):
+    COLLECTION_IES = IES.COLLECTION
 
-    ies_path = join(root, 'ies.ipf', 'collection.ies')
+    LOG.info('Parsing Collections from %s ...', COLLECTION_IES)
+
+    ies_path = join(root, 'ies.ipf', COLLECTION_IES)
 
     if not exists(ies_path):
-        LOG.warning('File not found: collection.ies')
+        LOG.warning('File not found: %s', COLLECTION_IES)
         return
     
     item_data = data['items']
@@ -95,16 +113,20 @@ def parse_collections(root: str, data: dict, translate: Callable[[str], str], fi
                 collection['Bonus'] = {}
 
             # Parse Collection Completion Bonus
-            for bonus in findall('/?(\S+?)/(\S+?)/?', '%s/%s' % (row['PropList'], row['AccPropList'])):
-                collection['Bonus'][COLLECTION_STATS[bonus[0]]] = int(bonus[1])
+            stats = [stat for stat in split('/+', '%s/%s' % (row['PropList'], row['AccPropList'])) if stat]
 
-def parse_cubes(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
-    LOG.info('Parsing Cubes from reward_ratio_open_list.ies ...')
+            for stat, value in zip(stats[::2], stats[1::2]):
+                collection['Bonus'][COLLECTION_STATS[stat]] = int(value)
 
-    ies_path = join(root, 'ies.ipf', 'reward_ratio_open_list.ies')
+def parse_cubes(root: str, data: dict):
+    CUBE_IES = IES.CUBE
+
+    LOG.info('Parsing Cubes from %s ...', CUBE_IES)
+
+    ies_path = join(root, 'ies.ipf', CUBE_IES)
 
     if not exists(ies_path):
-        LOG.warning('File not found: reward_ratio_open_list.ies')
+        LOG.warning('File not found: %s', CUBE_IES)
         return
 
     item_data = data['items']
@@ -132,17 +154,11 @@ def parse_cubes(root: str, data: dict, translate: Callable[[str], str], find_ico
             cube_data[row['Group']].append(content)
 
 def parse_equipment(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
+    TREES       = ['Char1', 'Char2', 'Char3', 'Char4', 'Char5']
     LUA_RUNTIME = luautil.LUA_RUNTIME
 
-    item_data = data['items']
-
-    xml_path = join(root, 'language.ipf', 'DicIDTable.xml')
-
-    if exists(xml_path):
-        xml = parse_xml(xml_path, XMLConfig(recover = True))
-    else:
-        LOG.warning('File not found: DicIDTable.xml')
-        xml = xml_element('DicIDTable')
+    item_data   = data['items']
+    arcane_data = data['arcane']
 
     for file_name in IES.EQUIPMENT:
         LOG.info('Parsing Equipment from %s ...', file_name)
@@ -162,7 +178,7 @@ def parse_equipment(root: str, data: dict, translate: Callable[[str], str], find
                 equipment['TypeEquipment'] = row['ClassType'].upper()
                 equipment['Level']         = row['ItemLv'] if row['ItemLv'] > 0 else equipment['RequiredLevel']
                 equipment['Material']      = row['Material']
-                equipment['RequiredTree']  = 'TTTTT' if 'All' in row['UseJob'] else ''.join(['T' if tree in row['UseJob'] else 'F' for tree in __TREES])
+                equipment['RequiredTree']  = 'TTTTT' if 'All' in row['UseJob'] else ''.join(['T' if tree in row['UseJob'] else 'F' for tree in TREES])
                 equipment['RequiredClass'] = row['JobOnly']
                 equipment['Gender']        = row['UseGender']
 
@@ -210,19 +226,19 @@ def parse_equipment(root: str, data: dict, translate: Callable[[str], str], find
                 if row['OptDesc'] != '':
                     equipment['Bonus'].append(('', translate(row['OptDesc'])))
 
-                # Visions
+                # Arcanes
                 if equipment['TypeEquipment'] == 'ARCANE':
-                    equipment['TypeEquipment'] = 'VISION'
+                    arcane_effect = {}
 
-                    equipment['VisionClass'] = VISION_TO_CLASS[equipment['$ID_NAME'][:None if row['NumberArg'] == '1' else -4]]
+                    arcane_effect['Tier'] = int(row['NumberArg'])
 
-                    # Base Effect
                     if 'AdditionalOption_1' in row and row['AdditionalOption_1'] != '':
-                        equipment['Bonus'].append(('VSN_BASE', translate(xml.xpath(__VISION_XPATH % row['AdditionalOption_1']).get('kr'))))
+                        arcane_effect['Base'] = row['AdditionalOption_1']
 
-                    # Final Effect
                     if 'AdditionalOption_2' in row and row['AdditionalOption_2'] != '':
-                        equipment['Bonus'].append(('VSN_FINAL', translate(xml.xpath(__VISION_XPATH % row['AdditionalOption_2']).get('kr'))).replace(__BOLD_FORMAT, ''))
+                        arcane_effect['Final'] = row['AdditionalOption_2']
+
+                    arcane_data[equipment['$ID_NAME']] = arcane_effect
 
                 # Hair Accessories
                 if row['ReqToolTip'][:-1] == '헤어 코스튬':
@@ -231,90 +247,61 @@ def parse_equipment(root: str, data: dict, translate: Callable[[str], str], find
                 item_data[equipment['$ID_NAME']] = equipment
 
 def parse_gems(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
-    item_data  = data['items']
-    skill_data = data['skills']
+    GEM_IES = IES.GEM_BASIC
+
+    SELECT_ITEM = 'Item[Name~="%s"]'
+
+    LOG.info('Parsing Gems from %s ...', GEM_IES)
+        
+    ies_path = join(root, 'ies.ipf', GEM_IES)
+
+    if not exists(ies_path):
+        LOG.warning('File not found: %s', GEM_IES)
+        return
 
     xml_path = join(root, 'xml.ipf', 'socket_property.xml')
 
     if exists(xml_path):
-        xml = parse_xml(xml_path, XMLConfig(recover = True))
+        soup = parse_xml(xml_path).getroot()
     else:
-        LOG.warning('File not found: socket_property.xml')
-        xml = xml_element('SocketProperty')
+        soup = xml_element('SocketProperty')
+    
+    item_data  = data['items']
+    skill_data = data['skills']
 
-    for file_name in IES.GEM:
-        LOG.info('Parsing Gems from %s ...', file_name)
-        
-        ies_path = join(root, 'ies.ipf', file_name)
+    with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
+        for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
+            gem = __create_item(row, translate, find_icon)
 
-        if not exists(ies_path):
-            LOG.warning('File not found: %s', file_name)
-            continue
+            gem['TypeGem'] = data['EquipXpGroup'].upper()
 
-        with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
-            for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
-                gem = __create_item(row, translate, find_icon)
+            if gem['TypeGem'] == 'GEM_SKILL':
+                skill = gem['$ID_NAME'][4:]
 
-                gem['TypeGem'] = row['EquipXpGroup'].upper() if gem['Type'] == 'GEM' else gem['Type']
-                gem['Type']    = 'GEM'
+                if skill not in skill_data:
+                    LOG.warning('Skill Missing: %s', skill)
+                    continue
 
-                if gem['TypeGem'] == 'GEM_RELIC':
-                    gem['RelicEffect'] = row['RelicGemOption']
+                skill_data[skill]['Gem'] = gem['$ID_NAME']
 
-                    # TODO: SFR from LUA ('get_tooltip_%s_arg%s' % (['RelicEffect'], argc))
-
-                elif gem['TypeGem'] == 'GEM_HIGH_COLOR':
-                    gem['StatGrowth'] = row['StringArg']
-
-                elif gem['TypeGem'] == 'GEM_SKILL':
-                    skill = gem['$ID_NAME'][4:]
-
-                    if skill not in skill_data:
-                        LOG.warning('Skill Missing: %s', skill)
-                        continue
-
-                    skill_data[skill]['Gem'] = gem['$ID_NAME']
-
-                else:
-                    item = xml.find('./Item[@Name=\'%s\']' % gem['$ID_NAME'])
-
-                    if item is None:
-                        LOG.warning('Gem Levels Missing: %s', gem['$ID_NAME'])
-                        continue
-
-                    base = item.find('./Level[@Level=\'0\']')
-
-                    if base is None:
-                        continue
-
-                    gain = base.get('PropList_MainOrSubWeapon')        .split('/')[0]
-                    lose = base.get('PropList_MainOrSubWeapon_Penalty').split('/')[0]
-
-                    slice_gain = len(gain + '/')
-                    slice_lose = len(lose + '/')
-
-                    stats = {}
-
-                    stats[gain] = [0] * 10
-                    stats[lose] = [0] * 10
+            else:
+                for item in soup.cssselect(SELECT_ITEM % gem['$ID_NAME']):
+                    bonus = {}
 
                     for prop in item:
-                        try:
-                            level = int(prop.get('Level')) - 1
-                        except:
-                            continue
+                        stats = [stat for stat in split('/+', '%s/%s' % (prop['proplist_mainorsubweapon'], prop['proplist_mainorsubweapon_penalty'])) if stat]
 
-                        if level < 0:
-                            continue
+                        for stat, value in zip(stats[::2], stats[1::2]):
+                            if stat not in bonus:
+                                bonus[stat] = [0] * 11
 
-                        stats[gain][level] = prop.get('PropList_MainOrSubWeapon')        [slice_gain:]
-                        stats[lose][level] = prop.get('PropList_MainOrSubWeapon_Penalty')[slice_lose:]
+                            bonus[stat][int(prop.get('level'))] = int(value)
 
-                    gem['Stats'] = stats
+                        gem['Bonuses'] = bonus
                 
-                item_data[gem['$ID_NAME']] = gem
+            item_data[gem['$ID_NAME']] = gem
 
-def parse_goddess_equipment(cache: Cache):
+def parse_goddess_equipment(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
     LUA_RUNTIME = luautil.LUA_RUNTIME
 
     functions = {
@@ -347,7 +334,7 @@ def parse_goddess_equipment(cache: Cache):
 
     materials[460]  = {'armor' : a}
 
-    cache.data['goddess_reinf_mat'] = materials
+    data['goddess_reinf_mat'] = materials
     
     ies_list = {
         'item_goddess_reinforce.ies'    : 460, 
@@ -355,7 +342,7 @@ def parse_goddess_equipment(cache: Cache):
     }
 
     for file_name in ies_list:
-        ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', file_name)
+        ies_path = join(root, 'ies.ipf', file_name)
 
         if not exists(ies_path):
             LOG.warning('File not found: %s', file_name)
@@ -367,12 +354,12 @@ def parse_goddess_equipment(cache: Cache):
             for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
                 obj.append(row)
 
-        cache.data['goddess_reinf'][ies_list[file_name]] = obj
+        data['goddess_reinf'][ies_list[file_name]] = obj
 
-def parse_grade_ratios(cache: Cache):
+def parse_grade_ratios(root: str, data: dict):
     LOG.info('Parsing Grade Ratios from item_grade.ies ...')
 
-    ies_path = join(cache.PATH_INPUT_DATA, 'ies.ipf', 'item_grade.ies')
+    ies_path = join(root, 'ies.ipf', 'item_grade.ies')
 
     if not exists(ies_path):
         LOG.warning('File not found: item_grade.ies')
@@ -384,7 +371,7 @@ def parse_grade_ratios(cache: Cache):
         for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
             grade_ratios[int(row['Grade'])] = row
 
-    cache.data['grade_ratios'] = grade_ratios
+    data['grade_ratios'] = grade_ratios
 
 def parse_items(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
     item_data = data['items']
@@ -427,12 +414,14 @@ def parse_items(root: str, data: dict, translate: Callable[[str], str], find_ico
                 item_data[item['$ID_NAME']] = item
 
 def parse_recipes(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
-    LOG.info('Parsing Recipes from recipe.ies ...')
+    RECIPE_IES = IES.RECIPE
 
-    ies_path = join(root, 'ies.ipf', 'recipe.ies')
+    LOG.info('Parsing Recipes from %s ...', RECIPE_IES)
+
+    ies_path = join(root, 'ies.ipf', RECIPE_IES)
 
     if not exists(ies_path):
-        LOG.warning('File not found: recipe.ies')
+        LOG.warning('File not found: %s', RECIPE_IES)
         return
 
     item_data = data['items']
@@ -475,6 +464,102 @@ def parse_recipes(root: str, data: dict, translate: Callable[[str], str], find_i
                 recipe['Materials'].append(material)
 
             item_data[recipe['$ID_NAME']] = recipe
+
+def parse_relic_gems(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
+    GEM_IES = IES.GEM_RELIC
+
+    SELECT_DESCRIPTION = 'dic_data[FilenameWithKey*="RelicGem_%s_DescText_Data_0"][IsUse="1"]'
+    TOOLTIP_SCRIPT     = 'get_tooltip_%s_arg%s'
+
+    LOG.info('Parsing Relic Gems from %s ...', GEM_IES)
+        
+    ies_path = join(root, 'ies.ipf', GEM_IES)
+
+    if not exists(ies_path):
+        LOG.warning('File not found: %s', GEM_IES)
+        return
+
+    LUA_RUNTIME = luautil.LUA_RUNTIME
+
+    item_data = data['items']
+
+    soup = parse_xml(join(root, 'language.ipf', 'DicIDTable.xml')).getroot()
+
+    with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
+        for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
+            gem = __create_item(row, translate, find_icon)
+
+            gem['Type']    = 'GEM'
+            gem['TypeGem'] = row['GroupName']
+
+            option = row['RelicGemOption']
+
+            if row['GemType'] == 'Gem_Relic_Cyan':
+                description = soup.cssselect(SELECT_DESCRIPTION % option)
+
+                if len(description > 0):
+                    gem['Description'] = translate(soup.cssselect(SELECT_DESCRIPTION % option)[0].get('kr', ''))
+
+            else:
+                gem['Description'] = ''
+
+            gem['Effects'] = {}
+
+            tooltip_script = TOOLTIP_SCRIPT % (option, 1)
+
+            if tooltip_script in LUA_RUNTIME:
+                factor, name, _, unit = LUA_RUNTIME[tooltip_script](row)
+
+                gem['Effects'][name] = (factor, unit)
+
+                tooltip_script = TOOLTIP_SCRIPT % (option, 2)
+
+                if row['GemType'] != 'Gem_Relic_Black' and tooltip_script in LUA_RUNTIME:
+                    factor, name, _, unit = LUA_RUNTIME[tooltip_script](row)
+
+                    gem['Effects'][name] = (factor, unit)
+
+                    tooltip_script = TOOLTIP_SCRIPT % (option, 3)
+
+                    if tooltip_script in LUA_RUNTIME:
+                        factor, name, _, unit = LUA_RUNTIME[tooltip_script](row)
+
+                        gem['Effects'][name] = (factor, unit)
+
+            item_data[gem['$ID_NAME']] = gem
+
+def parse_vision(root: str, data: dict, translate: Callable[[str], str]):
+    BOLD_FORMAT   = '{nl} {nl}{@st66d}{s15}'
+    SELECT_EFFECT = 'dic_data[FilenameWithKey*="tooltip_%s_Data_0"][IsUse="1"]'
+
+    LOG.info('Parsing Vision Effects ...')
+
+    xml_path = join(root, 'language.ipf', 'DicIDTable.xml')
+
+    if not exists(xml_path):
+        LOG.warning('File not found: DicIDTable.xml')
+        return
+
+    item_data   = data['items']
+    arcane_data = data['arcane']
+
+    soup = parse_xml(xml_path).getroot()
+
+    for arcane in arcane_data:
+        equipment = item_data[arcane]
+
+        id    = arcane[:None if arcane['Tier'] == 1 else -4]
+        base  = soup.cssselect(SELECT_EFFECT % arcane['Base'])  if 'Base'  in arcane else None
+        final = soup.cssselect(SELECT_EFFECT % arcane['Final']) if 'Final' in arcane else None
+
+        if id in VISION_TO_CLASS:
+            equipment['VisionClass'] = VISION_TO_CLASS[id]
+
+        if len(base) and base[0].has_key('kr'):
+            equipment['Bonus'].append(('VSN_BAS', translate(base.get('kr'))))
+
+        if len(final) and final[0].has_key('kr'):
+            equipment['Bonus'].append(('VSN_FIN', translate(final.get('kr').replace(BOLD_FORMAT, ''))))
 
 def __create_item(data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]) -> dict:
     item = {}

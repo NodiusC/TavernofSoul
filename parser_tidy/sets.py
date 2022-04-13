@@ -12,7 +12,7 @@ from typing import Callable
 
 LOG = getLogger('Parse.Sets')
 
-def parse_equipment_sets(root: str, data: dict, translate: Callable[[str], str]):
+def parse_equipment(root: str, data: dict, translate: Callable[[str], str]):
     LOG.info('Parsing Equipment Sets from setitem.ies ...')
 
     ies_path = join(root, 'ies.ipf', 'setitem.ies')
@@ -48,7 +48,7 @@ def parse_equipment_sets(root: str, data: dict, translate: Callable[[str], str])
 
             set_data[equipment_set['$ID_NAME']] = equipment_set
 
-def parse_legend_sets(root: str, data: dict, translate: Callable[[str], str]):
+def parse_enchants(root: str, data: dict, translate: Callable[[str], str]):
     LOG.info('Parsing Legend Sets from legend_setitem.ies ...')
 
     ies_path = join(root, 'ies.ipf', 'legend_setitem.ies')
@@ -68,7 +68,7 @@ def parse_legend_sets(root: str, data: dict, translate: Callable[[str], str]):
             legend_set['$ID_NAME'] = row['ClassName']
             legend_set['Name']     = translate(row['Name'])
             legend_set['Set']      = row['LegendGroup'].split('/')
-            legend_set['Pieces']   = row['MaxOptionCount']
+            legend_set['Pieces']   = int(row['MaxOptionCount'])
 
             materials = {}
 

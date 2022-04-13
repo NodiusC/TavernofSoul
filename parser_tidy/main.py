@@ -81,31 +81,34 @@ if __name__ == '__main__':
     
     asset.parse(cache)
 
-    classes.parse_classes(cache)
+    classes.parse_classes(root, data, translate, find_icon)
 
-    effects.parse(cache)
+    effects.parse(root, data)
 
-    skills.parse_skill_tree (root, data)                       # Parse Class Skills
-    sets  .parse_legend_sets(root, data, translate) # Parse Legend Sets and Skills
-    skills.parse_cosplay    (root, data)                       # Parse Costume Skills
-    skills.parse_relic      (root, data, translate, find_icon) # Parse Relic Release
-    skills.parse_common     (root, data, translate, find_icon) # Parse Common Skills
-    skills.parse_skills     (root, data, translate, find_icon) # Parse Cached Skills
+    skills.parse_skill_tree(root, data)                       # Parse Class Skills
+    sets  .parse_enchants  (root, data, translate)            # Parse Legend Enchant Sets and Skills
+    skills.parse_cosplay   (root, data)                       # Parse Costume Skills
+    skills.parse_relic     (root, data, translate, find_icon) # Parse Relic Release
+    skills.parse_common    (root, data, translate, find_icon) # Parse Common Skills
+    skills.parse_skills    (root, data, translate, find_icon) # Parse Cached Skills
 
     attributes.parse_attributes     (root, data, translate, find_icon) # Parse Attributes
     attributes.parse_team_attributes(root, data, translate, find_icon) # Parse Account Attributes
 
     buff.parse(cache)
 
-    items.parse_items         (root, data, translate, find_icon) # Parse Items
-    items.parse_grade_ratios  (root, data)                       # Parse Grade Ratios
-    items.parse_equipment     (root, data, translate, find_icon) # Parse Equipment
-    sets .parse_equipment_sets(root, data, translate)            # Parse Equipment Sets
-    items.parse_gems          (root, data, translate, find_icon) # Parse Gems
-    items.parse_cubes         (root, data)                       # Parse Cubes
-    items.parse_collections   (root, data)                       # Parse Collections
-    items.parse_recipes       (root, data, translate, find_icon) # Parse Recipes
-    items.parse_books         (root, data, translate)            # Parse Books
+    items.parse_items       (root, data, translate, find_icon) # Parse Items
+    items.parse_grade_ratios(root, data)                       # Parse Grade Ratios
+    items.parse_equipment   (root, data, translate, find_icon) # Parse Equipment
+    items.parse_vision      (root, data, translate)            # Parse Class Arcane
+    sets .parse_equipment   (root, data, translate)            # Parse Equipment Sets
+    items.parse_gems        (root, data, translate, find_icon) # Parse Colour and Skill Gems
+    items.parse_aether_gems (root, data, translate, find_icon) # Parse Aether Gems
+    items.parse_relic_gems  (root, data, translate, find_icon) # Parse Relic Gems
+    items.parse_cubes       (root, data)                       # Parse Cubes
+    items.parse_collections (root, data)                       # Parse Collections
+    items.parse_recipes     (root, data, translate, find_icon) # Parse Recipes
+    items.parse_books       (root, data, translate)            # Parse Books
     
     items_static.insert_static(cache)
     

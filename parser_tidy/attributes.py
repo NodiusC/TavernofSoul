@@ -69,6 +69,8 @@ def parse_attributes(root: str, data: dict, translate: Callable[[str], str], fin
             attribute_data[attribute['$ID_NAME']] = attribute
 
 def parse_team_attributes(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
+    # SELECT_DESCRIPTION = 'dic_data[FilenameWithKey*="AccountAbilityOptionText{Option}{addvalue}_Data_0"]'
+
     LOG.info('Parsing Account Attributes from account_ability.ies ...')
 
     ies_path = join(root, 'ies.ipf', 'account_ability.ies')

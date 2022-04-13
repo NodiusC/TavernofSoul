@@ -5,17 +5,18 @@ Created on Thu Sep 23 08:06:31 2021
 @author: Temperantia
 """
 
-import csv
-import io
-import logging
-import os
-import re
+from csv import DictReader as IESReader
+from logging import getLogger
+from os import walk
 from os.path import join
+from re import DOTALL, match, sub
 
-import constants.ies as IES
-import iesutil
-from cache import TOSParseCache as Cache
 from lupa import LuaRuntime, LuaError
+
+from cache import TOSParseCache as Cache
+from iesutil import load
+
+LOG = getLogger('Lua')
 
 LUA_OVERRIDE = [
     'function GET_ITEM_LEVEL(item) return 0 end',  # We cant emulate this function as geItemTable is undefined
@@ -94,7 +95,6 @@ LUA_OVERRIDE = [
         return t
     end
     '''
-
 ]
 
 LUA_RUNTIME = None
@@ -127,8 +127,8 @@ def init_global_constants(cache: Cache, file_name: str):
 
     ies_path = join(cache.PATH_INPUT_DATA_LUA, 'ies.ipf', file_name)
 
-    with io.open(ies_path, 'r', encoding = 'utf-8') as ies_file:
-        for row in csv.DictReader(ies_file, delimiter = ',', quotechar = '"'):
+    with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
+        for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
             if row['UseInScript'] == 'NO':
                 continue
 
@@ -164,34 +164,22 @@ def init_global_data(cache: Cache):
         return ies_ADD
     ''')
 
-    ies_ADD('ancient', iesutil.load('Ancient_Info.ies',c))
-    ies_ADD('ancient_info', iesutil.load('Ancient_Info.ies',c))
-    ies_ADD('item', iesutil.load('item_equip.ies',c))
-    ies_ADD('item', iesutil.load('item_Equip_EP12.ies',c))
-    ies_ADD('increasecost', iesutil.load('item_IncreaseCost.ies',c))
-    ies_ADD('item_grade', iesutil.load('item_grade.ies',c))
-    ies_ADD('item_growth', iesutil.load('item_growth.ies',c))
-    ies_ADD('monster', iesutil.load('monster.ies',c))
-    ies_ADD('monster', iesutil.load('monster_event.ies',c))
-    ies_ADD('monster', iesutil.load('Monster_solo_dungeon.ies',c))
-    ies_ADD('stat_monster', iesutil.load('statbase_monster.ies',c))
-    ies_ADD('stat_monster_race', iesutil.load('statbase_monster_race.ies',c))
-    ies_ADD('stat_monster_type', iesutil.load('statbase_monster_type.ies',c))
-    ies_ADD('skillrestrict', iesutil.load('skill_restrict.ies',c))
-    #skill_restrict.ies
+    root = cache.PATH_INPUT_DATA
 
-        ies_ADD('item', iesutil.load(i, cache))
-
-    ies_ADD('increasecost',      iesutil.load('item_IncreaseCost.ies',     cache))
-    ies_ADD('item_grade',        iesutil.load('item_grade.ies',            cache))
-    ies_ADD('item_growth',       iesutil.load('item_growth.ies',           cache))
-    ies_ADD('monster',           iesutil.load('monster.ies',               cache))
-    ies_ADD('monster',           iesutil.load('monster_event.ies',         cache))
-    ies_ADD('monster',           iesutil.load('Monster_solo_dungeon.ies',  cache))
-    ies_ADD('stat_monster',      iesutil.load('statbase_monster.ies',      cache))
-    ies_ADD('stat_monster_race', iesutil.load('statbase_monster_race.ies', cache))
-    ies_ADD('stat_monster_type', iesutil.load('statbase_monster_type.ies', cache))
-    ies_ADD('skillrestrict',     iesutil.load('skill_restrict.ies',        cache))
+    ies_ADD('ancient',           load(root, 'Ancient_Info.ies'))
+    ies_ADD('ancient_info',      load(root, 'Ancient_Info.ies'))
+    ies_ADD('increasecost',      load(root, 'item_IncreaseCost.ies'))
+    ies_ADD('item',              load(root, 'item_equip.ies'))
+    ies_ADD('item',              load(root, 'item_Equip_EP12.ies'))
+    ies_ADD('item_grade',        load(root, 'item_grade.ies'))
+    ies_ADD('item_growth',       load(root, 'item_growth.ies'))
+    ies_ADD('monster',           load(root, 'monster.ies'))
+    ies_ADD('monster',           load(root, 'monster_event.ies'))
+    ies_ADD('monster',           load(root, 'Monster_solo_dungeon.ies'))
+    ies_ADD('stat_monster',      load(root, 'statbase_monster.ies'))
+    ies_ADD('stat_monster_race', load(root, 'statbase_monster_race.ies'))
+    ies_ADD('stat_monster_type', load(root, 'statbase_monster_type.ies'))
+    ies_ADD('skillrestrict',     load(root, 'skill_restrict.ies'))
 
 def init_global_functions():
     LUA.execute('''
@@ -302,8 +290,6 @@ def init_global_functions():
            return list
         end
 
-
-
         function SyncFloor(number)
             return math.floor(number)
         end
@@ -340,8 +326,6 @@ def init_global_functions():
                 return default
             end
         end
-
-
     ''' + '\n'.join(LUA_OVERRIDE))
 
 def init_runtime(cache: Cache):
@@ -350,7 +334,7 @@ def init_runtime(cache: Cache):
     LUA_RUNTIME = {}
     LUA_SOURCE  = {}
 
-    for root, dirs, file_list in os.walk(cache.PATH_INPUT_DATA):
+    for root, _, file_list in walk(cache.PATH_INPUT_DATA):
         for file_name in file_list:
             if file_name.upper().endswith('.LUA'):
 
@@ -362,7 +346,7 @@ def init_runtime(cache: Cache):
                         # Remove multiline comments https://stackoverflow.com/a/40454391
                         file_content = file.readlines()
                         file_content = ''.join(file_content)
-                        file_content = re.sub(r'--\[(=*)\[(.|\n)*?\]\1\]', '', file_content)
+                        file_content = sub(r'--\[(=*)\[(.|\n)*?\]\1\]', '', file_content)
 
                         # Load LUA functions
                         for line in file_content.split('\n'):
@@ -375,14 +359,14 @@ def init_runtime(cache: Cache):
                             line = line.replace('\{', '\\\\{')      # Fix regex escaping
                             line = line.replace('\}', '\\\\}')      # Fix regex escaping
 
-                            line = re.sub(r'\[\"(\w*?)\"\]', r"['\1']", line)                           # Replace double quote with single quote
-                            line = re.sub(r'local \w+ = require[ (]["\']\w+["\'][ )]*', '', line)       # Remove require statements
-                            line = re.sub(r'function (\w+):(\w+)\((.*)\)', r'function \1.\2(\3)', line) # Replace function a:b with function a.b
+                            line = sub(r'\[\"(\w*?)\"\]', r"['\1']", line)                           # Replace double quote with single quote
+                            line = sub(r'local \w+ = require[ (]["\']\w+["\'][ )]*', '', line)       # Remove require statements
+                            line = sub(r'function (\w+):(\w+)\((.*)\)', r'function \1.\2(\3)', line) # Replace function a:b with function a.b
 
                             if len(line) == 0:
                                 continue
 
-                            if bool(re.match(r'(local\s+)?function\s+[\w.:]+\(.*?\)', line)):
+                            if bool(match(r'(local\s+)?function\s+[\w.:]+\(.*?\)', line)):
                                 try:
                                     lua_function_load(lua_function)
 
@@ -396,9 +380,7 @@ def init_runtime(cache: Cache):
                         lua_function_load(lua_function)
 
                     except LuaError as error:
-                        logging.warn('Failed to load %s, error: %s...', file_path, error)
-                        err.append(lua_function)
-                        continue
+                        LOG.warning('Failed to load %s\nError: %s', file_path, error)
 
 def destroy():
     global LUA, LUA_OVERRIDE, LUA_RUNTIME, LUA_SOURCE
@@ -509,24 +491,24 @@ def lua_function_source_to_javascript(function_source):
         line = line.replace('math.', 'Math.')
         line = line.replace(':', '.')
 
-        line = re.sub(r'--(.+)', '', line)
-        line = re.sub(r'#(\w+)', r'\1.length', line)
-        line = re.sub(r'\band\b', ' && ', line)
-        line = re.sub(r'\bor\b', ' || ', line)
-        line = re.sub(r'\bend\b', '}', line)
-        line = re.sub(r'\belse\b', '} else {', line)
-        line = re.sub(r'\belseif\b', '} else if', line)
-        line = re.sub(r'\bnil\b', 'null', line)
-        line = re.sub(r'{((?:"\w+"[,\s]*)+)}', r'[\1]', line)                                                      # Arrays
-        line = re.sub(r'^(\s*)([^\s]+?),\s*([^\s]+?)\s*=\s*([^\s]+?),\s*([^\s]+?)$', r'\1\2 = \4; \3 = \5;', line) # Multiple Variable Association
+        line = sub(r'--(.+)', '', line)
+        line = sub(r'#(\w+)', r'\1.length', line)
+        line = sub(r'\band\b', ' && ', line)
+        line = sub(r'\bor\b', ' || ', line)
+        line = sub(r'\bend\b', '}', line)
+        line = sub(r'\belse\b', '} else {', line)
+        line = sub(r'\belseif\b', '} else if', line)
+        line = sub(r'\bnil\b', 'null', line)
+        line = sub(r'{((?:"\w+"[,\s]*)+)}', r'[\1]', line)                                                      # Arrays
+        line = sub(r'^(\s*)([^\s]+?),\s*([^\s]+?)\s*=\s*([^\s]+?),\s*([^\s]+?)$', r'\1\2 = \4; \3 = \5;', line) # Multiple Variable Association
 
         result.append(line)
 
     result = '\n'.join(result)
 
-    result = re.sub(r'for ([^,]+?)=([^,]+?),([^,]+?),([^,]+?)do', r'for (var \1 = \2; \1 <= \3; \1 += \4) {', result, flags = re.DOTALL)
-    result = re.sub(r'for ([^,]+?)=([^,]+?),([^,]+?)do', r'for (var \1 = \2; \1 <= \3; \1 ++) {', result, flags = re.DOTALL)
-    result = re.sub(r'if (.+?) then', r'if (\1) {', result, flags = re.DOTALL)
+    result = sub(r'for ([^,]+?)=([^,]+?),([^,]+?),([^,]+?)do', r'for (var \1 = \2; \1 <= \3; \1 += \4) {', result, flags = DOTALL)
+    result = sub(r'for ([^,]+?)=([^,]+?),([^,]+?)do', r'for (var \1 = \2; \1 <= \3; \1 ++) {', result, flags = DOTALL)
+    result = sub(r'if (.+?) then', r'if (\1) {', result, flags = DOTALL)
     result = result.splitlines()
 
     return result

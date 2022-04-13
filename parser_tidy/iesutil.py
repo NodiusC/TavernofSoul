@@ -5,27 +5,24 @@ Created on Thu Sep 23 08:07:28 2021
 @author: Temperantia
 """
 
-import csv
-import logging
-import io
+from csv import DictReader as IESReader
+from logging import getLogger
 from os.path import exists, join
 
+LOG = getLogger('Parse.IESUtil')
 
-def load(ies_name,c):
-    ies_data = []
-    #ies_path = os.path.join(globals.PATH_INPUT_DATA, "ies.ipf", ies_name)
-    ies_path = c.file_dict[ies_name.lower()]['path']
+def load(root: str, ies: str,c):
+    ies_path = join(root, "ies.ipf", ies)
 
     if not exists(ies_path):
-        logging.warn('Missing ies file: %s', ies_path)
+        LOG.warning('File not found: %s', ies_path)
         return []
+    
+    ies_data = []
 
-    with io.open(ies_path, 'r', encoding = "utf-8") as ies_file:
-        ies_reader = csv.DictReader(ies_file, delimiter=',', quotechar='"')
-
-        for row in ies_reader:
-            # auto cast to int/float if possible
-            for key in row.keys():
+    with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
+        for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
+            for key in row.keys(): # Cast to int or float if possible
                 try:
                     row[key] = int(row[key])
                 except :
