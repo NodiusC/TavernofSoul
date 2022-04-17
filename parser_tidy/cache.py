@@ -51,8 +51,8 @@ class TOSParseCache():
        'buff'              : {},
        'achievements'      : {}
     }
-    
-    def build(self, region: str):
+
+    def __init__(self, region: str):
         self.REGION                          = region.lower()
 
         self.BASE_PATH_INPUT                 = join('..', 'TavernofSoul', 'JSON_%s' % (self.REGION))

@@ -67,8 +67,6 @@ if __name__ == '__main__':
     except:
         LOG.warning('Missing Argument: Region')
         quit()
-    
-    cache = Cache()
 
     current = read_version('parser_version.csv')
     latest  = read_version(join('..', 'downloader', 'revision.csv'))
@@ -77,7 +75,7 @@ if __name__ == '__main__':
         LOG.warning('The parsed data is already update to date.')
         quit()
         
-    cache.build(region)
+    cache = Cache(region)
 
     root      = cache.PATH_INPUT_DATA
     data      = cache.data
