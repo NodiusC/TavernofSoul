@@ -11,7 +11,7 @@ Created on Thu Sep 23 11:17:20 2021
 import sys
 from csv import reader, writer
 from json import dump as export
-from logging import getLogger
+from logging import FileHandler, Formatter, getLogger, INFO, StreamHandler, WARNING
 from os.path import join
 
 import asset
@@ -28,13 +28,25 @@ import monsters
 import parse_xac
 import sets
 import skills
-import translation
 from cache import TOSParseCache as Cache
+from translation import Translator
 
 LOG = getLogger('Parse')
+LOG.setLevel(INFO)
+
+__LOG_INFO = StreamHandler(sys.stdout)
+__LOG_INFO.setLevel(INFO)
+__LOG_FILE = FileHandler('warning.log', encoding = 'utf-8')
+__LOG_FILE.setLevel(WARNING)
+
+__FORMAT = Formatter('[%(asctime)s] %(levelname)8s::%(name)s - %(message)s', '%H:%M:%S %d.%m.%Y')
+__LOG_INFO.setFormatter(__FORMAT)
+__LOG_FILE.setFormatter(__FORMAT)
+
+LOG.addHandler(__LOG_INFO)
+LOG.addHandler(__LOG_FILE)
 
 SUPPORTED_REGIONS = ['itos', 'ktos', 'ktest', 'jtos', 'twtos']
-TRANSLATE_REGIONS = ['itos', 'jtos', 'twtos']
 
 def print_version(file_name: str, version: dict):
     with open(file_name, 'w') as file:
@@ -69,15 +81,12 @@ if __name__ == '__main__':
 
     root      = cache.PATH_INPUT_DATA
     data      = cache.data
-    translate = cache.translate
+    translate = Translator(cache)
     find_icon = cache.find_icon
 
     parse_xac.parse_xac(cache)
 
     luautil.init(cache)
-
-    if region in TRANSLATE_REGIONS:
-        translation.parse_translations(cache)
     
     asset.parse(cache)
 
@@ -100,7 +109,6 @@ if __name__ == '__main__':
     items.parse_items       (root, data, translate, find_icon) # Parse Items
     items.parse_grade_ratios(root, data)                       # Parse Grade Ratios
     items.parse_equipment   (root, data, translate, find_icon) # Parse Equipment
-    items.parse_vision      (root, data, translate)            # Parse Class Arcane
     sets .parse_equipment   (root, data, translate)            # Parse Equipment Sets
     items.parse_gems        (root, data, translate, find_icon) # Parse Colour and Skill Gems
     items.parse_aether_gems (root, data, translate, find_icon) # Parse Aether Gems
@@ -112,7 +120,7 @@ if __name__ == '__main__':
     
     items_static.insert_static(cache)
     
-    items.parse_goddess_equipment(cache)
+    items.parse_goddess_equipment(root, data)
     
     monsters.parse(cache)
     

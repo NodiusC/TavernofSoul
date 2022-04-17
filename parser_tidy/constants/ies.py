@@ -7,6 +7,12 @@ Created on Sat Feb 12 20:24:21 2022
 @credit: Nodius, Temperantia
 """
 
+BOOK = 'dialogtext.ies'
+
+COLLECTION = 'collection.ies'
+
+CUBE = 'reward_ratio_open_list.ies'
+
 EQUIPMENT = [
     'item_equip.ies',
     'item_Equip_EP12.ies',
@@ -14,11 +20,9 @@ EQUIPMENT = [
     'item_event_equip.ies'
 ]
 
-GEM = [
-    'item_gem.ies',
-    'item_gem_bernice.ies',
-    'item_gem_relic.ies'
-]
+GEM_AETHER = 'item_gem_bernice.ies'
+GEM_BASIC  = 'item_gem.ies'
+GEM_RELIC  = 'item_gem_relic.ies'
 
 ITEM = [
     'item.ies',
@@ -45,6 +49,8 @@ MONSTER = [
     'monster_pcsummon.ies',
     'monster_mgame.ies'
 ]
+
+RECIPE = 'recipe.ies'
 
 REINFORCE = {
     'item_goddess_reinforce.ies'    : 460,

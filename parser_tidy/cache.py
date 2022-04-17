@@ -24,24 +24,15 @@ class TOSParseCache():
     PATH_BUILD_ASSETS_IMAGES_MAPS = None
     PATH_INPUT_DATA               = None
     PATH_INPUT_DATA_LUA           = None
-    TRANSLATION_PATH              = None
-
-    REGIONS = {
-        'itos' : 'English',
-        'jtos' : 'Japanese',
-        'twtos': 'Taiwanese'
-    }
     
     data_build = ['assets_icons', 'maps', 'maps_by_name', 'maps_by_position']
         
     data = {
-       'dictionary'        : {},
        'assets_icons'      : {},
        'items'             : {},
        'cube_contents'     : {},
        'equipment_sets'    : {},
        'legend_sets'       : {},
-       'arcane'            : {},
        'classes'           : {},
        'attributes'        : {},
        'skills'            : {},
@@ -73,8 +64,6 @@ class TOSParseCache():
         
         self.PATH_INPUT_DATA     = join('..', '%s_unpack' % (self.REGION))
         self.PATH_INPUT_DATA_LUA = join('..', '%s_unpack' % (self.REGION))
-
-        self.TRANSLATION_PATH = join('..', 'Translation', self.REGIONS[self.REGION]) if self.REGION in self.REGIONS else '.'
         
         for i in self.data_build:
             self.data[i] = self.import_json(join(self.BASE_PATH_INPUT, '%s.json' % (i)))
@@ -132,33 +121,3 @@ class TOSParseCache():
     def print_json(self, obj, file_name: str):
         with open(join(self.BASE_PATH_INPUT, file_name), 'w') as file:
             json.dump(obj, file)
-    
-    def reverse_dictionary(self, dictionary: dict):
-        a = {}
-
-        for i in dictionary.keys():
-            a [dictionary[i]] =  i
-        
-        return a
-    
-    def translate(self, text: str) -> str:
-        if self.TRANSLATION_PATH == None:
-            return self.data['dictionary'][text]
-
-        text = text.replace('"', '')
-
-        if (self.data['dictionary'] == {}):
-            LOG.debug('The dictionary is empty')
-            return text
-        
-        if not self.data['dictionary']:
-            return text
-        
-        if text != '' and text not in self.data['dictionary']:
-            LOG.debug('The translation for key \'%s\' is missing', text)
-            return text
-
-        if text == '':
-            return ''
-        
-        return self.data['dictionary'][text]

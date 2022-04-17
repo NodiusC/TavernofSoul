@@ -10,9 +10,11 @@ from logging import getLogger
 from os.path import exists, join
 from typing import Callable
 
+from translation import Translator
+
 LOG = getLogger('Parse.Sets')
 
-def parse_equipment(root: str, data: dict, translate: Callable[[str], str]):
+def parse_equipment(root: str, cache: dict, translate: Translator):
     LOG.info('Parsing Equipment Sets from setitem.ies ...')
 
     ies_path = join(root, 'ies.ipf', 'setitem.ies')
@@ -21,8 +23,8 @@ def parse_equipment(root: str, data: dict, translate: Callable[[str], str]):
         LOG.warning('File not found: setitem.ies')
         return
 
-    set_data  = data['equipment_sets']
-    item_data = data['items']
+    set_data  = cache['equipment_sets']
+    item_data = cache['items']
 
     with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
@@ -48,7 +50,7 @@ def parse_equipment(root: str, data: dict, translate: Callable[[str], str]):
 
             set_data[equipment_set['$ID_NAME']] = equipment_set
 
-def parse_enchants(root: str, data: dict, translate: Callable[[str], str]):
+def parse_enchants(root: str, cache: dict, translate: Translator):
     LOG.info('Parsing Legend Sets from legend_setitem.ies ...')
 
     ies_path = join(root, 'ies.ipf', 'legend_setitem.ies')
@@ -57,8 +59,8 @@ def parse_enchants(root: str, data: dict, translate: Callable[[str], str]):
         LOG.warning('File not found: legend_setitem.ies')
         return
 
-    set_data   = data['legend_sets']
-    skill_data = data['skills']
+    set_data   = cache['legend_sets']
+    skill_data = cache['skills']
 
     with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):

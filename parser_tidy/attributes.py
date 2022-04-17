@@ -14,10 +14,11 @@ from os.path import exists, join
 from typing import Callable
 
 from constants.ability import ATTRIBUTE_COST
+from translation import Translator
 
 LOG = getLogger('Parse.Attributes')
 
-def parse_attributes(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
+def parse_attributes(root: str, data: dict, translate: Translator, find_icon: Callable[[str], str]):
     LOG.info('Parsing Attributes from ability.ies ...')
 
     directory = join(root, 'ies_ability.ipf')
@@ -68,7 +69,7 @@ def parse_attributes(root: str, data: dict, translate: Callable[[str], str], fin
 
             attribute_data[attribute['$ID_NAME']] = attribute
 
-def parse_team_attributes(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
+def parse_team_attributes(root: str, data: dict, translate: Translator, find_icon: Callable[[str], str]):
     # SELECT_DESCRIPTION = 'dic_data[FilenameWithKey*="AccountAbilityOptionText{Option}{addvalue}_Data_0"]'
 
     LOG.info('Parsing Account Attributes from account_ability.ies ...')
@@ -100,7 +101,7 @@ def parse_team_attributes(root: str, data: dict, translate: Callable[[str], str]
 
             attribute_data[attribute['$ID_NAME']] = attribute
 
-def __get_valid_attributes(directory: str, classes: dict, translate: Callable[[str], str]) -> dict:
+def __get_valid_attributes(directory: str, classes: dict, translate: Translator) -> dict:
     attributes = {}
     
     for job in classes:

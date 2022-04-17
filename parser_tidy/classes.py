@@ -10,9 +10,11 @@ from logging import getLogger
 from os.path import exists, join
 from typing import Callable
 
+from translation import Translator
+
 LOG = getLogger('Parse.Classes')
 
-def parse_classes(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
+def parse_classes(root: str, cache: dict, translate: Translator, find_icon: Callable[[str], str]):
     LOG.info('Parsing Classes from job.ies ...')
 
     ies_path = join(root, 'ies.ipf', 'job.ies')
@@ -21,7 +23,7 @@ def parse_classes(root: str, data: dict, translate: Callable[[str], str], find_i
         LOG.warning('File not found: job.ies')
         return
     
-    class_data = data['classes']
+    class_data = cache['classes']
 
     with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):

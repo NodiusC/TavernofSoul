@@ -19,15 +19,16 @@ import constants.ies as IES
 import luautil
 from cache import TOSParseCache as Cache
 from constants.ability import parse_damage_properties as parse_properties
+from translation import Translator
 
 X = symbols('x') # Skill Level Variable
 
 LOG = getLogger('Parse.Skills')
 
-def parse_common(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
+def parse_common(root: str, cache: dict, translate: Translator, find_icon: Callable[[str], str]):
     pass # TODO: Assister and Ride Pet
 
-def parse_cosplay(root: str, data: dict):
+def parse_cosplay(root: str, cache: dict):
     LOG.info('Parsing Costume Transformations from item_skillmake_costume.ies ...')
 
     ies_path = join(root, 'ies.ipf', 'item_skillmake_costume.ies')
@@ -36,8 +37,8 @@ def parse_cosplay(root: str, data: dict):
         LOG.warning('File not found: item_skillmake_costume.ies')
         return
 
-    item_data  = data['items']
-    skill_data = data['skills']
+    item_data  = cache['items']
+    skill_data = cache['skills']
 
     with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
@@ -59,13 +60,13 @@ def parse_cosplay(root: str, data: dict):
 
             skill_data[skill['$ID_NAME']] = skill
 
-def parse_relic(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
+def parse_relic(root: str, cache: dict, translate: Translator, find_icon: Callable[[str], str]):
     pass # TODO: Relic Release
 
-def parse_skills(root: str, data: dict, translate: Callable[[str], str], find_icon: Callable[[str], str]):
+def parse_skills(root: str, cache: dict, translate: Translator, find_icon: Callable[[str], str]):
     LUA_RUNTIME = luautil.LUA_RUNTIME
 
-    skill_data = data['skills']
+    skill_data = cache['skills']
 
     for file_name in IES.SKILL:
         LOG.info('Parsing Skills from %s ...', file_name)
@@ -119,7 +120,7 @@ def parse_skills(root: str, data: dict, translate: Callable[[str], str], find_ic
                 skill['SkillFactorPerLevel'] = float(row['SklFactorByLevel'])
                 skill['Target']              = row['Target']
 
-def parse_skill_tree(root: str, data: dict):
+def parse_skill_tree(root: str, cache: dict):
     LOG.info('Parsing Class Skills from skilltree.ies ...')
 
     ies_path = join(root, 'ies.ipf', 'skilltree.ies')
@@ -128,8 +129,8 @@ def parse_skill_tree(root: str, data: dict):
         LOG.warning('File not found: skilltree.ies')
         return
 
-    skill_data = data['skills']
-    class_data = data['classes']
+    skill_data = cache['skills']
+    class_data = cache['classes']
     
     with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
