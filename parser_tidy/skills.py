@@ -11,21 +11,20 @@ Created on Thu Sep 23 08:55:17 2021
 from csv import DictReader as IESReader
 from logging import getLogger
 from os.path import exists, join
-from typing import Callable
 
 from sympy import Float, Integer, jscode, symbols # TODO: Replace
 
 import constants.ies as IES
 import luautil
-from cache import TOSParseCache as Cache
 from constants.ability import parse_damage_properties as parse_properties
-from translation import Translator
+from asset import Asset
+from translations import Translator
 
 X = symbols('x') # Skill Level Variable
 
 LOG = getLogger('Parse.Skills')
 
-def parse_common(root: str, cache: dict, translate: Translator, find_icon: Callable[[str], str]):
+def parse_common(root: str, cache: dict, translate: Translator, assetdata: Asset):
     pass # TODO: Assister and Ride Pet
 
 def parse_cosplay(root: str, cache: dict):
@@ -60,10 +59,10 @@ def parse_cosplay(root: str, cache: dict):
 
             skill_data[skill['$ID_NAME']] = skill
 
-def parse_relic(root: str, cache: dict, translate: Translator, find_icon: Callable[[str], str]):
+def parse_relic(root: str, cache: dict, translate: Translator, assetdata: Asset):
     pass # TODO: Relic Release
 
-def parse_skills(root: str, cache: dict, translate: Translator, find_icon: Callable[[str], str]):
+def parse_skills(root: str, cache: dict, translate: Translator, assetdata: Asset):
     LUA_RUNTIME = luautil.LUA_RUNTIME
 
     skill_data = cache['skills']
@@ -86,7 +85,7 @@ def parse_skills(root: str, cache: dict, translate: Translator, find_icon: Calla
 
                 skill['$ID']         = row['ClassID']
                 skill['Name']        = translate(row['Name'])
-                skill['Icon']        = find_icon(row['Icon'])
+                skill['Icon']        = assetdata(row['Icon'])
                 skill['Description'] = translate(row['Caption'])
                 skill['Details']     = translate(row['Caption2'])
 

@@ -10,7 +10,7 @@ from logging import getLogger
 from os.path import exists, join
 from typing import Callable
 
-from translation import Translator
+from translations import Translator
 
 LOG = getLogger('Parse.Sets')
 

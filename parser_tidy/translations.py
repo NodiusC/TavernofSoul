@@ -17,6 +17,7 @@ from os.path import exists, join
 from lxml.html import HtmlElement as HTMLElement, parse as parse_xml
 
 from cache import TOSParseCache as Cache
+from constants.xml import DIC_TABLE
 
 LOG = getLogger('Parse.Translations')
 
@@ -35,10 +36,10 @@ class Translator():
     def __init__(self, cache: Cache):
         self.__TRANSLATION_PATH = join('..', 'Translation', REGIONS[cache.REGION]) if cache.REGION in REGIONS else None
 
-        xml_path = join(cache.PATH_INPUT_DATA, 'language.ipf', 'DicIDTable.xml')
+        xml_path = join(cache.PATH_INPUT_DATA, 'language.ipf', DIC_TABLE)
 
         if not exists(xml_path):
-            LOG.error('FILE \'DicIDTable.xml\' NOT FOUND')
+            LOG.error('FILE \'%s\' NOT FOUND', DIC_TABLE)
             return
         
         soup: HTMLElement = parse_xml(xml_path).getroot()

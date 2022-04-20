@@ -11,14 +11,14 @@ Created on Thu Sep 23 08:05:03 2021
 from csv import DictReader as IESReader
 from logging import getLogger
 from os.path import exists, join
-from typing import Callable
 
 from constants.ability import ATTRIBUTE_COST
-from translation import Translator
+from asset import Asset
+from translations import Translator
 
 LOG = getLogger('Parse.Attributes')
 
-def parse_attributes(root: str, data: dict, translate: Translator, find_icon: Callable[[str], str]):
+def parse_attributes(root: str, cache: dict, translate: Translator, assetdata: Asset):
     LOG.info('Parsing Attributes from ability.ies ...')
 
     directory = join(root, 'ies_ability.ipf')
@@ -28,9 +28,9 @@ def parse_attributes(root: str, data: dict, translate: Translator, find_icon: Ca
         LOG.warning('File not found: ability.ies')
         return
     
-    attribute_data = data['attributes']
+    attribute_data = cache['attributes']
 
-    attributes = __get_valid_attributes(directory, data['classes'], translate)
+    attributes = __get_valid_attributes(directory, cache['classes'], translate)
 
     with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
@@ -39,7 +39,7 @@ def parse_attributes(root: str, data: dict, translate: Translator, find_icon: Ca
             attribute['$ID']         = row['ClassID']
             attribute['$ID_NAME']    = row['ClassName']
             attribute['Name']        = translate(row['Name'])
-            attribute['Icon']        = find_icon(row['Icon'])
+            attribute['Icon']        = assetdata(row['Icon'])
             attribute['Description'] = translate(row['Desc'])
 
             attribute['Default']    = 'DEFAULT_ABIL' in row['Keyword']
@@ -69,7 +69,7 @@ def parse_attributes(root: str, data: dict, translate: Translator, find_icon: Ca
 
             attribute_data[attribute['$ID_NAME']] = attribute
 
-def parse_team_attributes(root: str, data: dict, translate: Translator, find_icon: Callable[[str], str]):
+def parse_team_attributes(root: str, cache: dict, translate: Translator, assetdata: Asset):
     # SELECT_DESCRIPTION = 'dic_data[FilenameWithKey*="AccountAbilityOptionText{Option}{addvalue}_Data_0"]'
 
     LOG.info('Parsing Account Attributes from account_ability.ies ...')
@@ -80,7 +80,7 @@ def parse_team_attributes(root: str, data: dict, translate: Translator, find_ico
         LOG.warning('File not found: account_ability.ies')
         return
     
-    attribute_data = data['attributes']
+    attribute_data = cache['attributes']
 
     with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
@@ -89,7 +89,7 @@ def parse_team_attributes(root: str, data: dict, translate: Translator, find_ico
             attribute['$ID']      = row['ClassID']
             attribute['$ID_NAME'] = row['ClassName']
             attribute['Name']     = translate(row['Name'])
-            attribute['Icon']     = find_icon(row['Icon'])
+            attribute['Icon']     = assetdata(row['Icon'])
 
             attribute['Type']     = 'ACCOUNT'
             attribute['MaxLevel'] = int(row['MaxLevel'])

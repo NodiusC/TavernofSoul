@@ -8,13 +8,13 @@ IES Parser for Classes.
 from csv import DictReader as IESReader
 from logging import getLogger
 from os.path import exists, join
-from typing import Callable
 
-from translation import Translator
+from asset import Asset
+from translations import Translator
 
 LOG = getLogger('Parse.Classes')
 
-def parse_classes(root: str, cache: dict, translate: Translator, find_icon: Callable[[str], str]):
+def parse_classes(root: str, cache: dict, translate: Translator, assetdata: Asset):
     LOG.info('Parsing Classes from job.ies ...')
 
     ies_path = join(root, 'ies.ipf', 'job.ies')
@@ -33,7 +33,7 @@ def parse_classes(root: str, cache: dict, translate: Translator, find_icon: Call
             job['$ID_NAME']     = row['ClassName']
             job['Name']         = translate(row['Name'])
             job['InternalName'] = row['EngName']
-            job['Icon']         = find_icon(row['Icon'])
+            job['Icon']         = assetdata(row['Icon'])
             job['Description']  = translate(row['Caption1'])
             job['Tree']         = row['CtrlType']
 

@@ -5,7 +5,7 @@ Created on Fri Apr 1 03:20:01 2022
 @credit: Nodius, Temperantia
 """
 
-ADD_DAMAGE_STATS = [
+ADD_ATK_STATS = [
     'ADD_FIRE',      # Additional Damage (Legacy)
     'ADD_ICE',       # Additional Damage (Legacy)
     'ADD_LIGHTNING', # Additional Damage (Legacy)
@@ -16,7 +16,7 @@ ADD_DAMAGE_STATS = [
     'ADD_POISON'     # Additional Damage (Legacy)
 ]
 
-ADD_DAMAGE_RESISTANCE_STATS = [
+ADD_RES_STATS = [
     'RES_FIRE',      # Additional Damage Resistance (Legacy)
     'RES_LIGHTNING', # Additional Damage Resistance (Legacy)
     'RES_ICE',       # Additional Damage Resistance (Legacy)

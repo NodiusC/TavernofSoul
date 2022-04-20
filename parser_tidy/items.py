@@ -12,18 +12,18 @@ from csv import DictReader as IESReader
 from logging import getLogger
 from os.path import exists, join
 from re import match, split
-from typing import Callable
 
 from lxml.html import Element as xml_element, HtmlElement as HTMLElement, parse as parse_xml
 
 import constants.ies as IES
 import luautil
+from asset import Asset
 from constants.item import ADD_ATK_STATS, ADD_RES_STATS, COLLECTION_STATS, EQUIPMENT_STATS, TRADABILITY, VISION_TO_CLASS
-from translation import Translator
+from translations import Translator
 
 LOG = getLogger('Parse.Items')
 
-def parse_aether_gems(root: str, cache: dict, translate: Translator, find_icon: Callable[[str], str]):
+def parse_aether_gems(root: str, cache: dict, translate: Translator, assetdata: Asset):
     GEM_IES = IES.GEM_AETHER
 
     LOG.info('Parsing Aether Gems from %s ...', GEM_IES)
@@ -38,7 +38,7 @@ def parse_aether_gems(root: str, cache: dict, translate: Translator, find_icon: 
 
     with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
-            gem = __create_item(row, translate, find_icon)
+            gem = __create_item(row, translate, assetdata)
 
             gem['Type']    = 'GEM'
             gem['TypeGem'] = 'GEM_AETHER'
@@ -146,7 +146,7 @@ def parse_cubes(root: str, cache: dict):
 
             cube_data[row['Group']].append(content)
 
-def parse_equipment(root: str, cache: dict, translate: Translator, find_icon: Callable[[str], str]):
+def parse_equipment(root: str, cache: dict, translate: Translator, assetdata: Asset):
     BOLD_FORMAT   = '{nl} {nl}{@st66d}{s15}'
     SELECT_VISION = 'dic_data[FilenameWithKey*="tooltip_%s_Data_0"][IsUse="1"]'
     TREES         = ['Char1', 'Char2', 'Char3', 'Char4', 'Char5']
@@ -166,7 +166,7 @@ def parse_equipment(root: str, cache: dict, translate: Translator, find_icon: Ca
 
         with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
             for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
-                equipment = __create_item(row, translate, find_icon)
+                equipment = __create_item(row, translate, assetdata)
                 
                 equipment['Type']          = 'EQUIPMENT'
                 equipment['TypeAttack']    = row['AttackType']
@@ -248,7 +248,7 @@ def parse_equipment(root: str, cache: dict, translate: Translator, find_icon: Ca
 
                 item_data[equipment['$ID_NAME']] = equipment
 
-def parse_gems(root: str, cache: dict, translate: Translator, find_icon: Callable[[str], str]):
+def parse_gems(root: str, cache: dict, translate: Translator, assetdata: Asset):
     GEM_IES = IES.GEM_BASIC
 
     SELECT_ITEM = 'Item[Name~="%s"]'
@@ -275,7 +275,7 @@ def parse_gems(root: str, cache: dict, translate: Translator, find_icon: Callabl
 
     with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
-            gem = __create_item(row, translate, find_icon)
+            gem = __create_item(row, translate, assetdata)
 
             gem['TypeGem'] = cache['EquipXpGroup'].upper()
 
@@ -377,7 +377,7 @@ def parse_grade_ratios(root: str, cache: dict):
 
     cache['grade_ratios'] = grade_ratios
 
-def parse_items(root: str, cache: dict, translate: Translator, find_icon: Callable[[str], str]):
+def parse_items(root: str, cache: dict, translate: Translator, assetdata: Asset):
     item_data = cache['items']
 
     for file_name in IES.ITEM:
@@ -391,10 +391,10 @@ def parse_items(root: str, cache: dict, translate: Translator, find_icon: Callab
 
         with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
             for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
-                item = __create_item(row, translate, find_icon)
+                item = __create_item(row, translate, assetdata)
                 
                 if item['Type'] == 'CARD':
-                    item['IconTooltip'] = find_icon(row['TooltipImage'])
+                    item['IconTooltip'] = assetdata(row['TooltipImage'])
                     item['TypeCard']    = row['CardGroupName'].upper() if 'CardGroupName' in row else 'MASTER_CARD_ALBUM' # HOTFIX: Master Card Albums
 
                 if item['Type'] == 'CUBE':
@@ -417,7 +417,7 @@ def parse_items(root: str, cache: dict, translate: Translator, find_icon: Callab
                 
                 item_data[item['$ID_NAME']] = item
 
-def parse_recipes(root: str, cache: dict, translate: Translator, find_icon: Callable[[str], str]):
+def parse_recipes(root: str, cache: dict, translate: Translator, assetdata: Asset):
     RECIPE_IES = IES.RECIPE
 
     LOG.info('Parsing Recipes from %s ...', RECIPE_IES)
@@ -432,7 +432,7 @@ def parse_recipes(root: str, cache: dict, translate: Translator, find_icon: Call
 
     with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
-            recipe = __create_item(row, translate, find_icon)
+            recipe = __create_item(row, translate, assetdata)
 
             if row['TargetItem'] not in item_data:
                 LOG.warning('Recipe Product Missing: %s', row['TargetItem'])
@@ -469,7 +469,7 @@ def parse_recipes(root: str, cache: dict, translate: Translator, find_icon: Call
 
             item_data[recipe['$ID_NAME']] = recipe
 
-def parse_relic_gems(root: str, data: dict, translate: Translator, find_icon: Callable[[str], str]):
+def parse_relic_gems(root: str, data: dict, translate: Translator, assetdata: Asset):
     GEM_IES = IES.GEM_RELIC
 
     SELECT_DESCRIPTION = 'dic_data[FilenameWithKey*="RelicGem_%s_DescText_Data_0"][IsUse="1"]'
@@ -489,7 +489,7 @@ def parse_relic_gems(root: str, data: dict, translate: Translator, find_icon: Ca
 
     with open(ies_path, 'r', encoding = 'utf-8') as ies_file:
         for row in IESReader(ies_file, delimiter = ',', quotechar = '"'):
-            gem = __create_item(row, translate, find_icon)
+            gem = __create_item(row, translate, assetdata)
 
             gem['Type']    = 'GEM'
             gem['TypeGem'] = row['GroupName']
@@ -530,7 +530,7 @@ def parse_relic_gems(root: str, data: dict, translate: Translator, find_icon: Ca
 
             item_data[gem['$ID_NAME']] = gem
 
-def __create_item(data: dict, translate: Translator, find_icon: Callable[[str], str]) -> dict:
+def __create_item(data: dict, translate: Translator, assetdata: Asset) -> dict:
     item = {}
 
     item['$ID']           = str(data['ClassID'])
@@ -540,7 +540,7 @@ def __create_item(data: dict, translate: Translator, find_icon: Callable[[str], 
     item['InternalType']  = item['Type']
     item['Grade']         = int(data['ItemGrade']) if 'ItemGrade' in data and data['ItemGrade'] != '' else 1
     item['Stars']         = int(data['ItemStar'])
-    item['Icon']          = find_icon(data['Icon'])
+    item['Icon']          = assetdata(data['Icon'])
     item['Description']   = translate(data['Desc']) if 'Desc' in data else None
     item['RequiredLevel'] = int(data['UseLv'])
     item['Weight']        = float(data['Weight'])

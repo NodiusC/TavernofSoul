@@ -75,29 +75,6 @@ class TOSParseCache():
         for file_name in self.data:
             self.export(file_name)
     
-    def find_icon(self, icon: str) -> str:
-        if icon == '':
-            return None
-        
-        icon = icon.lower()
-
-        icon_found = None
-    
-        if icon in self.data['assets_icons']:
-            icon_found = icon
-        elif 'icon_' + icon in self.data['assets_icons']:
-            icon_found = 'icon_' + icon
-        elif icon +'_f' in self.data['assets_icons']:
-            icon_found = icon + '_f'
-        elif icon + '_m' in self.data['assets_icons']:
-            icon_found = icon + '_m'
-    
-        if icon_found is not None:
-            return self.data['assets_icons'][icon_found]
-        else:
-            LOG.warning('The icon for \'%s\' is missing', icon)
-            return icon
-    
     def get_npc(self, name: str):
         if name in self.data['monsters']:
             return self.data['monsters'][name], 'mon'

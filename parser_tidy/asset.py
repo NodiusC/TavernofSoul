@@ -2,140 +2,81 @@
 """
 Created on Wed Sep 22 13:47:05 2021
 
-@author: CPPG02619
+@author: Temperantia
+@credit: rjgtav, Temperantia, Nodius
 """
 
-import imageutil
-import logging
-import os
-import shutil
-import xml.etree.ElementTree as ET
+from logging import getLogger
+from os.path import exists, isfile, join
+from shutil import copy
+
+from lxml.html import HtmlElement as HTMLElement, parse as parse_xml
+from PIL.Image import ANTIALIAS, open as open_image
 
 from cache import TOSParseCache as Cache
-from os.path import exists, join
+from constants.xml import ICON
 
-IMAGE_SIZE = {  # Top, Left, Width, Height
-    'bosscard2'        : (330, 440),
-    'sub_card3'        : (330, 440),
-    'npccard'          : (330, 440),
-    'goddesscard'      : (330, 440),
-    'item_tooltip_icon': (256, 256),
-    '256_equip_icons'  : (256, 256),
-    '256_costume_icons': (256, 256),
-    'acc_item'         : (256, 256),
-    'hair_accesory'    : (256, 256),
-    'item'             : (256, 256),
-    'payment'          : (256, 256)
-}
+LOG = getLogger('Parse.Assets')
 
-WHITELIST_BASESKINSET = [
-    'bosscard2',
-    'minimap_icons',
-    'sub_card3',
-    'wearing_weapon',
-    'npccard',
-    'goddesscard',
-]
+class Asset():
+    __ASSETS = {}
 
-WHITELIST_RGB = [
-    'bosscard2',
-    'sub_card3',
-    'npccard',
-    'goddesscard',
-]
+    def __call__(self, name: str) -> str:
+        return self.get(name)
 
-def parse(c = None):
-    if c == None:
-        logging.warn("c is none")
-        c = Cache()
-        c.build()
-    logging.basicConfig(level=logging.DEBUG)
+    def __init__(self, cache: Cache):
+        root        = cache.PATH_INPUT_DATA
+        destination = cache.PATH_BUILD_ASSETS_ICONS
 
-    logging.info('Parsing assets...')
-    parse_icons('baseskinset.xml',c)
-    parse_icons('classicon.xml',c)
-    parse_icons('itemicon.xml',c)
-    parse_icons('mongem.xml',c)
-    parse_icons('monillust.xml',c)
-    parse_icons('skillicon.xml',c)
+        for file_name in ICON:
+            LOG.info('Parsing Assets from %s ...', file_name)
 
+            xml_path = join(root, 'ui.ipf', 'baseskinset', file_name)
 
+            if not exists(xml_path):
+                LOG.warning('FILE \'%s\' NOT FOUND', file_name)
+                continue
 
-    logging.debug('--- Parsing Assets ---')
+            soup: HTMLElement = parse_xml(xml_path).getroot()
 
-    parse_icons('baseskinset.xml',c)
-    parse_icons('classicon.xml'  ,c)
-    parse_icons('itemicon.xml'   ,c)
-    parse_icons('mongem.xml'     ,c)
-    parse_icons('monillust.xml'  ,c)
-    parse_icons('skillicon.xml'  ,c)
+            for category in ICON[file_name]:
+                image_list: HTMLElement
 
-def parse_icons(file_name, c):
-    logging.debug('Parsing File: {}'.format(file_name))
+                selection = '[category~="%s"]' % category if category != '*' else ''
 
-    data_path = join(c.PATH_INPUT_DATA, 'ui.ipf', 'baseskinset', file_name)
+                for image_list in soup.cssselect('imagelist%s' % selection):
+                    entry: HTMLElement
 
-    if not exists(data_path):
-        logging.warn("{} does not exist".format(data_path))
-        return
+                    for entry in image_list.iter('image'):
+                        if not entry.get('name') or not entry.get('file'):
+                            continue
 
-    #data_path = os.path.join(globals.PATH_INPUT_DATA, 'ui.ipf', 'baseskinset', file_name)
-    logging.warning(file_name)
-    try:
-        data_path = c.file_dict[file_name.lower()]['path']
-    except:
-        data_path = os.path.join(c.PATH_INPUT_DATA, 'ui.ipf', 'baseskinset', file_name)
-        pass
-    if (not exists(data_path)):
-        logging.warn("{} not exists".format(data_path))
-        return
-    data = ET.parse(data_path).getroot()
-    data = [(image, imagelist) for imagelist in data for image in imagelist]
+                        name: str = entry.get('name')
+                        file: str = entry.get('file')
+                        rect      = tuple(map(int, str(entry.get('imgrect')).split()))
+                        size      = (rect[2], rect[3])
 
-    for work in data:
-        parse_icons_step(file_name, work, c)
+                        if size < (256, 256):
+                            size = (256, 256)
 
-def parse_icons_step(file_name, work, c):
-    image          = work[0]
-    image_category = work[1].get('category')
+                        source_path = join(root, 'ui.ipf', file)
 
-    if image.get('file') is None or image.get('name') is None:
-        return
+                        if isfile(source_path):
+                            image_path = join(destination, '%s.png' % name)
 
-    if file_name == 'baseskinset.xml' and image_category not in WHITELIST_BASESKINSET:
-        return
+                            copy(source_path, image_path)
 
-    file_name       = join(c.PATH_INPUT_DATA, 'ui.ipf', 'baseskinset', file_name.lower())
-    image_extension = '.jpg' if image_category in WHITELIST_RGB else '.png'
-    image_file      = image.get('file').split('\\')[-1]
+                            image = open_image(image_path)
+                            image = image.convert('RGBA') if image.mode != 'RGBA' else image
+                            image = image.crop((rect[0], rect[1], rect[0] + rect[2], rect[1] + rect[3])) if image.size != size else image
+                            image = image.resize(size, ANTIALIAS) if image.size < size else image
 
-    image_name = image.get('name')
-    image_rect = tuple(int(x) for x in image.get('imgrect').split()) if len(image.get('imgrect')) else None  # Top, Left, Width, Height
+                            image.save(image_path, 'PNG', optimize = True, quality = 80)
 
-    # Copy icon to web assets folder
-    copy_from = os.path.join(c.PATH_INPUT_DATA, 'ui.ipf', *image.get('file').lower().split('\\')[:-1])
-    copy_from = os.path.join(copy_from, image_file)
-    copy_to   = os.path.join(c.PATH_BUILD_ASSETS_ICONS, (image_name + image_extension).lower())
+                        else:
+                            LOG.warning('FILE \'%s\' NOT FOUND', file)
 
-    if not os.path.isfile(copy_from):
-        # logging.warning('The asset file \'{}\' cannot be found'.format(copy_from))
-        # Not to Future Self:
-        # If you find missing files due to wrong casing, go to the Hotfix at unpacker.py and force lowercase
-        c.data['assets_icons'][image_name.lower()] = image_name.lower()
-        return
+                        self.__ASSETS[name] = '%s.png' % name
 
-    if (not os.path.exists(c.PATH_BUILD_ASSETS_ICONS)):
-        os.mkdir (c.PATH_BUILD_ASSETS_ICONS)
-
-    shutil.copy(copy_from, copy_to)
-
-    # Crop, Resize, Optimize and convert to JPG/PNG
-    image_mode = 'RGB' if image_extension == '.jpg' else 'RGBA'
-    image_size = IMAGE_SIZE[image_category] if image_category in IMAGE_SIZE else (image_rect[2], image_rect[3])
-    image_size = (256, 256) if file_name == 'classicon.xml' else image_size
-    image_size = (256, 256) if file_name == 'skillicon.xml' else image_size
-
-    imageutil.optimize(copy_to, image_mode, image_rect, image_size)
-
-    # Store mapping for later use
-    c.data['assets_icons'][image_name.lower()] = image_name.lower()
+    def get(self, name: str) -> str:
+        return self.__ASSETS[name] if name in self.__ASSETS else None
