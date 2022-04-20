@@ -17,7 +17,7 @@ from sympy import Float, Integer, jscode, symbols # TODO: Replace
 import constants.ies as IES
 import luautil
 from constants.ability import parse_damage_properties as parse_properties
-from asset import Asset
+from assets import Asset
 from translations import Translator
 
 X = symbols('x') # Skill Level Variable

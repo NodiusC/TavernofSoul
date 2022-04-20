@@ -17,7 +17,7 @@ from lxml.html import Element as xml_element, HtmlElement as HTMLElement, parse 
 
 import constants.ies as IES
 import luautil
-from asset import Asset
+from assets import Asset
 from constants.item import ADD_ATK_STATS, ADD_RES_STATS, COLLECTION_STATS, EQUIPMENT_STATS, TRADABILITY, VISION_TO_CLASS
 from translations import Translator
 

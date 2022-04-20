@@ -28,7 +28,6 @@ class TOSParseCache():
     data_build = ['assets_icons', 'maps', 'maps_by_name', 'maps_by_position']
         
     data = {
-       'assets_icons'      : {},
        'items'             : {},
        'cube_contents'     : {},
        'equipment_sets'    : {},

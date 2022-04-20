@@ -14,7 +14,6 @@ from json import dump as export
 from logging import FileHandler, Formatter, getLogger, INFO, StreamHandler, WARNING
 from os.path import join
 
-import asset
 import attributes
 import buff
 import effects
@@ -28,7 +27,7 @@ import monsters
 import parse_xac
 import sets
 import skills
-from asset import Asset
+from assets import Asset
 from cache import TOSParseCache as Cache
 from translations import Translator
 

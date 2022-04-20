@@ -9,7 +9,7 @@ from csv import DictReader as IESReader
 from logging import getLogger
 from os.path import exists, join
 
-from asset import Asset
+from assets import Asset
 from translations import Translator
 
 LOG = getLogger('Parse.Classes')
